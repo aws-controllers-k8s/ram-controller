@@ -1,0 +1,8 @@
+service:
+  full_name: "Resource Access Manager"
+  short_name: "RAM"
+  link: "https://aws.amazon.com/ram/"
+  documentation: "https://docs.aws.amazon.com/ram/latest/userguide/what-is.html"
+api_versions:
+  - api_version: v1alpha1
+    status: available
