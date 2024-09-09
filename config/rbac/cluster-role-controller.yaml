@@ -31,6 +31,26 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - ram.services.k8s.aws
+  resources:
+  - resourceshares
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ram.services.k8s.aws
+  resources:
+  - resourceshares/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - services.k8s.aws
   resources:
   - adoptedresources

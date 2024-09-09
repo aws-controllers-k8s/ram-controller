@@ -111,14 +111,14 @@ const (
 	ResourceShareInvitationStatus_EXPIRED  ResourceShareInvitationStatus = "EXPIRED"
 )
 
-type ResourceShareStatus string
+type ResourceShareStatus_SDK string
 
 const (
-	ResourceShareStatus_PENDING  ResourceShareStatus = "PENDING"
-	ResourceShareStatus_ACTIVE   ResourceShareStatus = "ACTIVE"
-	ResourceShareStatus_FAILED   ResourceShareStatus = "FAILED"
-	ResourceShareStatus_DELETING ResourceShareStatus = "DELETING"
-	ResourceShareStatus_DELETED  ResourceShareStatus = "DELETED"
+	ResourceShareStatus_SDK_PENDING  ResourceShareStatus_SDK = "PENDING"
+	ResourceShareStatus_SDK_ACTIVE   ResourceShareStatus_SDK = "ACTIVE"
+	ResourceShareStatus_SDK_FAILED   ResourceShareStatus_SDK = "FAILED"
+	ResourceShareStatus_SDK_DELETING ResourceShareStatus_SDK = "DELETING"
+	ResourceShareStatus_SDK_DELETED  ResourceShareStatus_SDK = "DELETED"
 )
 
 type ResourceStatus string
