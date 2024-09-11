@@ -1,5 +1,25 @@
 ignore:
+  field_paths:
+      - CreateResourceShareInput.ClientToken
+      - CreateResourceShareOutput.ClientToken
   resource_names:
       - Permission
       - PermissionVersion
-      - ResourceShare
+resources:
+  ResourceShare:
+    fields:
+      Tags:
+        from:
+          operation: TagResource
+          path: Tags
+        compare:
+          is_ignored: True
+    hooks:
+      delta_pre_compare:
+        code: compareTags(delta, a, b)
+      sdk_update_pre_build_request:
+        template_path: hooks/resource_share/sdk_update_pre_build_request.go.tpl
+      sdk_read_many_post_build_request:
+        template_path: hooks/resource_share/sdk_find_read_many_post_build_request.go.tpl
+      sdk_file_end:
+        template_path: hooks/resource_share/sdk_file_end.go.tpl
