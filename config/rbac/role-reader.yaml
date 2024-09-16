@@ -9,6 +9,7 @@ rules:
 - apiGroups:
   - ram.services.k8s.aws
   resources:
+  - permissions
   - resourceshares
   verbs:
   - get

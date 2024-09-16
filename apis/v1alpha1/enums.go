@@ -23,13 +23,13 @@ const (
 	PermissionFeatureSet_STANDARD              PermissionFeatureSet = "STANDARD"
 )
 
-type PermissionStatus string
+type PermissionStatus_SDK string
 
 const (
-	PermissionStatus_ATTACHABLE   PermissionStatus = "ATTACHABLE"
-	PermissionStatus_UNATTACHABLE PermissionStatus = "UNATTACHABLE"
-	PermissionStatus_DELETING     PermissionStatus = "DELETING"
-	PermissionStatus_DELETED      PermissionStatus = "DELETED"
+	PermissionStatus_SDK_ATTACHABLE   PermissionStatus_SDK = "ATTACHABLE"
+	PermissionStatus_SDK_UNATTACHABLE PermissionStatus_SDK = "UNATTACHABLE"
+	PermissionStatus_SDK_DELETING     PermissionStatus_SDK = "DELETING"
+	PermissionStatus_SDK_DELETED      PermissionStatus_SDK = "DELETED"
 )
 
 type PermissionType string

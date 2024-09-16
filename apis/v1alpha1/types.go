@@ -33,6 +33,7 @@ var (
 type AssociatedPermission struct {
 	ARN               *string      `json:"arn,omitempty"`
 	DefaultVersion    *bool        `json:"defaultVersion,omitempty"`
+	FeatureSet        *string      `json:"featureSet,omitempty"`
 	LastUpdatedTime   *metav1.Time `json:"lastUpdatedTime,omitempty"`
 	PermissionVersion *string      `json:"permissionVersion,omitempty"`
 	ResourceShareARN  *string      `json:"resourceShareARN,omitempty"`
@@ -102,11 +103,14 @@ type ResourceSharePermissionDetail struct {
 	ARN                   *string      `json:"arn,omitempty"`
 	CreationTime          *metav1.Time `json:"creationTime,omitempty"`
 	DefaultVersion        *bool        `json:"defaultVersion,omitempty"`
+	FeatureSet            *string      `json:"featureSet,omitempty"`
 	IsResourceTypeDefault *bool        `json:"isResourceTypeDefault,omitempty"`
 	LastUpdatedTime       *metav1.Time `json:"lastUpdatedTime,omitempty"`
 	Name                  *string      `json:"name,omitempty"`
 	Permission            *string      `json:"permission,omitempty"`
+	PermissionType        *string      `json:"permissionType,omitempty"`
 	ResourceType          *string      `json:"resourceType,omitempty"`
+	Status                *string      `json:"status,omitempty"`
 	Tags                  []*Tag       `json:"tags,omitempty"`
 	Version               *string      `json:"version,omitempty"`
 }
@@ -116,9 +120,11 @@ type ResourceSharePermissionSummary struct {
 	ARN                   *string      `json:"arn,omitempty"`
 	CreationTime          *metav1.Time `json:"creationTime,omitempty"`
 	DefaultVersion        *bool        `json:"defaultVersion,omitempty"`
+	FeatureSet            *string      `json:"featureSet,omitempty"`
 	IsResourceTypeDefault *bool        `json:"isResourceTypeDefault,omitempty"`
 	LastUpdatedTime       *metav1.Time `json:"lastUpdatedTime,omitempty"`
 	Name                  *string      `json:"name,omitempty"`
+	PermissionType        *string      `json:"permissionType,omitempty"`
 	ResourceType          *string      `json:"resourceType,omitempty"`
 	Status                *string      `json:"status,omitempty"`
 	Tags                  []*Tag       `json:"tags,omitempty"`

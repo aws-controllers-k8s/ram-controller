@@ -80,6 +80,26 @@ rules:
 - apiGroups:
   - ram.services.k8s.aws
   resources:
+  - permissions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ram.services.k8s.aws
+  resources:
+  - permissions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ram.services.k8s.aws
+  resources:
   - resourceshares
   verbs:
   - create

@@ -1,0 +1,8 @@
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: Permission
+metadata:
+  name: $PERMISSION_NAME
+spec:
+  name: $PERMISSION_NAME
+  resourceType: imagebuilder:Component
+  policyTemplate: '{"Action": ["imagebuilder:ListComponents"], "Effect": "Allow"}'

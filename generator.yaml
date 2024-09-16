@@ -2,8 +2,9 @@ ignore:
   field_paths:
       - CreateResourceShareInput.ClientToken
       - CreateResourceShareOutput.ClientToken
+      - CreatePermissionInput.ClientToken
+      - CreatePermissionOutput.ClientToken
   resource_names:
-      - Permission
       - PermissionVersion
 resources:
   ResourceShare:
@@ -23,3 +24,9 @@ resources:
         template_path: hooks/resource_share/sdk_find_read_many_post_build_request.go.tpl
       sdk_file_end:
         template_path: hooks/resource_share/sdk_file_end.go.tpl
+  Permission:
+    hooks:
+      sdk_read_one_post_set_output:
+        template_path: hooks/permission/sdk_read_one_post_set_output.go.tpl
+    update_operation:
+      custom_method_name: customUpdatePermission
