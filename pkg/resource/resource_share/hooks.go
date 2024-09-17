@@ -50,7 +50,7 @@ func (rm *resourceManager) syncTags(
 	}
 
 	if len(toDeleteTagKeys) > 0 {
-		rlog.Debug("removing tags from HostedZone resource", "tags", toDeleteTagKeys)
+		rlog.Debug("removing tags from ResourceShare resource", "tags", toDeleteTagKeys)
 		_, err = rm.sdkapi.UntagResource(
 			&svcsdk.UntagResourceInput{
 				ResourceShareArn: (*string)(resourceArn),
@@ -65,14 +65,14 @@ func (rm *resourceManager) syncTags(
 	}
 
 	if len(toAdd) > 0 {
-		rlog.Debug("adding tags to HostedZone resource", "tags", toAdd)
+		rlog.Debug("adding tags to ResourceShare resource", "tags", toAdd)
 		_, err = rm.sdkapi.TagResource(
 			&svcsdk.TagResourceInput{
 				ResourceShareArn: (*string)(resourceArn),
 				Tags:             rm.sdkTags(toAdd),
 			},
 		)
-		rm.metrics.RecordAPICall("UPDATE", "CreateTags", err)
+		rm.metrics.RecordAPICall("UPDATE", "TagResource", err)
 		if err != nil {
 			return err
 		}

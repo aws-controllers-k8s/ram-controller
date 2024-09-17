@@ -39,6 +39,7 @@ import (
 	svcresource "github.com/aws-controllers-k8s/ram-controller/pkg/resource"
 	svcsdk "github.com/aws/aws-sdk-go/service/ram"
 
+	_ "github.com/aws-controllers-k8s/ram-controller/pkg/resource/permission"
 	_ "github.com/aws-controllers-k8s/ram-controller/pkg/resource/resource_share"
 
 	"github.com/aws-controllers-k8s/ram-controller/pkg/version"
