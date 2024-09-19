@@ -104,3 +104,20 @@ def get_resource_shares(resource_share_name):
                 return r
     except c.exceptions.UnknownResourceException:
         return None
+
+def list_associated_permissions(arn):
+    """Returns list of permissions for supplied ResourceShare name.
+
+    If no such ResourceShare exists, returns None
+    """
+    c = boto3.client('ram')
+    try:
+        resp = c.list_resource_share_permissions(
+            resourceShareArn=arn,
+        )
+        if 'permissions' in resp:
+            return resp['permissions']
+        else:
+            return None
+    except c.OperationNotPermittedException:
+        None
