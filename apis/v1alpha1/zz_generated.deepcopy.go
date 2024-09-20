@@ -729,6 +729,17 @@ func (in *ResourceShareSpec) DeepCopyInto(out *ResourceShareSpec) {
 			}
 		}
 	}
+	if in.PermissionRefs != nil {
+		in, out := &in.PermissionRefs, &out.PermissionRefs
+		*out = make([]*corev1alpha1.AWSResourceReferenceWrapper, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
 	if in.Principals != nil {
 		in, out := &in.Principals, &out.Principals
 		*out = make([]*string, len(*in))

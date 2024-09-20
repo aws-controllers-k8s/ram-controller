@@ -48,13 +48,13 @@ func (rm *resourceManager) customUpdatePermission(
 		}
 		ackcondition.SetSynced(&resource{ko}, corev1.ConditionTrue, nil, nil)
 	}
-	
+
 	if delta.DifferentAt("Spec.PolicyTemplate") {
 		err := rm.updatePermission(ctx, desired)
 		if err != nil {
 			return nil, err
 		}
-		// resource takes time to retrieve the latest version. Syncing after 
+		// resource takes time to retrieve the latest version. Syncing after
 		// 30 seconds gets the job done
 		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
 	}

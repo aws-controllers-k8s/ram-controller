@@ -166,6 +166,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+
+	if err = rm.getPermissionArns(ctx, &resource{ko}); err != nil {
+		return nil, err
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -375,7 +380,14 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+
+	if delta.DifferentAt("Spec.PermissionARNs") {
+		if err := rm.syncPermissions(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Tags", "Spec.PermissionARNs") {
 		return desired, nil
 	}
 

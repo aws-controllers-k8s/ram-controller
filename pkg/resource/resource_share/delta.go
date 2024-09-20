@@ -65,6 +65,9 @@ func newResourceDelta(
 			delta.Add("Spec.PermissionARNs", a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs)
 		}
 	}
+	if !reflect.DeepEqual(a.ko.Spec.PermissionRefs, b.ko.Spec.PermissionRefs) {
+		delta.Add("Spec.PermissionRefs", a.ko.Spec.PermissionRefs, b.ko.Spec.PermissionRefs)
+	}
 	if len(a.ko.Spec.Principals) != len(b.ko.Spec.Principals) {
 		delta.Add("Spec.Principals", a.ko.Spec.Principals, b.ko.Spec.Principals)
 	} else if len(a.ko.Spec.Principals) > 0 {

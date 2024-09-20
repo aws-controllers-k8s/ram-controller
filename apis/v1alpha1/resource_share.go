@@ -39,7 +39,8 @@ type ResourceShareSpec struct {
 	// specify an ARN for the permission, RAM automatically attaches the default
 	// version of the permission for each resource type. You can associate only
 	// one permission with each resource type included in the resource share.
-	PermissionARNs []*string `json:"permissionARNs,omitempty"`
+	PermissionARNs []*string                                  `json:"permissionARNs,omitempty"`
+	PermissionRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"permissionRefs,omitempty"`
 	// Specifies a list of one or more principals to associate with the resource
 	// share.
 	//

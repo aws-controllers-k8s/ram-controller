@@ -117,3 +117,118 @@ func compareTags(
 		}
 	}
 }
+
+func (rm *resourceManager) syncPermissions(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.syncPermissions")
+	defer func() {
+		exit(err)
+	}()
+
+	resourceArn := latest.ko.Status.ACKResourceMetadata.ARN
+
+	desiredPermissions := desired.ko.Spec.PermissionARNs
+	latestPermissions := latest.ko.Spec.PermissionARNs
+
+	toAdd, toDelete := comparePermissionArns(desiredPermissions, latestPermissions)
+
+	if len(toDelete) > 0 {
+		rlog.Debug("disassociating permissions from ResourceShare resource", "permissionArns", toDelete)
+		for _, permission := range toDelete {
+			_, err = rm.sdkapi.DisassociateResourceSharePermissionWithContext(
+				ctx,
+				&svcsdk.DisassociateResourceSharePermissionInput{
+					ResourceShareArn: (*string)(resourceArn),
+					PermissionArn:    permission,
+				},
+			)
+			rm.metrics.RecordAPICall("UPDATE", "DisassociateResourceSharePermission", err)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(toAdd) > 0 {
+		rlog.Debug("associating permissions to ResourceShare resource", "permissionArns", toAdd)
+		for _, permission := range toAdd {
+			_, err = rm.sdkapi.AssociateResourceSharePermissionWithContext(
+				ctx,
+				&svcsdk.AssociateResourceSharePermissionInput{
+					ResourceShareArn: (*string)(resourceArn),
+					PermissionArn:    permission,
+				},
+			)
+			rm.metrics.RecordAPICall("UPDATE", "AssociateResourceSharePermission", err)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func comparePermissionArns(a, b []*string) ([]*string, []*string) {
+	toAdd := make([]*string, 0, len(a))
+	toDelete := make([]*string, 0, len(a))
+
+	am := make(map[string]bool)
+
+	for _, v := range a {
+		am[*v] = true
+	}
+
+	for _, v := range b {
+		if _, ok := am[*v]; !ok {
+			toDelete = append(toDelete, v)
+		}
+	}
+
+	bm := make(map[string]bool)
+	for _, v := range b {
+		bm[*v] = true
+	}
+
+	for _, v := range a {
+		if _, ok := bm[*v]; !ok {
+			toAdd = append(toDelete, v)
+		}
+	}
+
+	return toAdd, toDelete
+}
+
+func (rm *resourceManager) getPermissionArns(ctx context.Context, r *resource) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.getPermissions")
+	defer func() {
+		exit(err)
+	}()
+	if r == nil || r.ko == nil || r.ko.Status.ACKResourceMetadata == nil || r.ko.Status.ACKResourceMetadata.ARN == nil {
+		return nil
+	}
+	resp, err := rm.sdkapi.ListResourceSharePermissions(
+		&svcsdk.ListResourceSharePermissionsInput{
+			ResourceShareArn: (*string)(r.ko.Status.ACKResourceMetadata.ARN),
+		},
+	)
+	rm.metrics.RecordAPICall("READ_MANY", "ListResourceSharePermissions", err)
+	if err != nil {
+		return err
+	}
+
+	if resp.Permissions != nil {
+		permissionArns := make([]*string, 0, len(resp.Permissions))
+		for _, p := range resp.Permissions {
+			permissionArns = append(permissionArns, p.Arn)
+		}
+		r.ko.Spec.PermissionARNs = permissionArns
+	}
+
+	return nil
+}

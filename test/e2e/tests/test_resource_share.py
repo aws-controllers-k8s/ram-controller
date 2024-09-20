@@ -24,7 +24,7 @@ from acktest.k8s import resource as k8s
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_ram_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e.bootstrap_resources import get_bootstrap_resources
-from e2e import ram_resource_share
+from e2e import ram_resource_share, ram_permission
 
 RESOURCE_KIND = "ResourceShare"
 RESOURCE_PLURAL = "resourceshares"
@@ -62,15 +62,6 @@ def resource_share():
     ram_resource_share.wait_until_exists(resource_name)
 
     yield cr, ref
-
-    # Delete k8s resource
-    _, deleted = k8s.delete_custom_resource(
-        ref,
-        period_length=DELETE_WAIT_AFTER_SECONDS,
-    )
-    assert deleted
-
-    ram_resource_share.wait_until_deleted(resource_name)
 
 
 @service_marker
@@ -110,3 +101,64 @@ class TestResourceShare:
         latest = ram_resource_share.get_resource_shares(resource_share_name=resource_name)
         assert 'tags' in latest
         assert user_tag in latest['tags']
+        assert 'resourceShareArn' in latest
+        
+        resource_share_arn = latest['resourceShareArn']
+
+        # Test associating Permission refs
+        permission_name = random_suffix_name("permission-name", 24)
+        test_values = REPLACEMENT_VALUES.copy()
+        test_values['PERMISSION_NAME'] = permission_name
+
+        permission_resource_data = load_ram_resource(
+            "ram_permission",
+            additional_replacements=test_values,
+        )
+
+        permission_ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, 'permissions',
+            permission_name, namespace="default"
+        )
+        k8s.create_custom_resource(permission_ref, permission_resource_data)
+
+        time.sleep(CREATE_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(permission_ref, "ACK.ResourceSynced", "True", wait_periods=5)
+
+        permission_reference = {
+            "from": {
+                "name": permission_name
+            }
+        }
+
+        updates = {
+            "spec": {
+                "permissionRefs": [permission_reference]
+            }
+        }
+
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        # Check resource synced successfully
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+
+        associated_permissions = ram_resource_share.list_associated_permissions(arn=resource_share_arn)
+
+        permission_arn = associated_permissions[0]['arn']
+
+        p_name = permission_arn.split("permission/")
+
+        assert len(p_name) > 1
+
+        assert p_name[1] == permission_name
+
+        # Delete k8s resource
+        _, deleted = k8s.delete_custom_resource(
+            ref,
+            period_length=DELETE_WAIT_AFTER_SECONDS,
+        )
+        assert deleted
+
+        _, deleted = k8s.delete_custom_resource(permission_ref, period_length=DELETE_WAIT_AFTER_SECONDS)
+        assert deleted

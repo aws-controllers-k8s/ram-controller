@@ -9,6 +9,10 @@ ignore:
 resources:
   ResourceShare:
     fields:
+      PermissionARNs:
+        references:
+          resource: Permission
+          path: Status.ACKResourceMetadata.ARN
       Tags:
         from:
           operation: TagResource
@@ -22,6 +26,8 @@ resources:
         template_path: hooks/resource_share/sdk_update_pre_build_request.go.tpl
       sdk_read_many_post_build_request:
         template_path: hooks/resource_share/sdk_find_read_many_post_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/resource_share/sdk_read_many_post_set_output.go.tpl
       sdk_file_end:
         template_path: hooks/resource_share/sdk_file_end.go.tpl
   Permission:
