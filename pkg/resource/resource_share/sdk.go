@@ -166,8 +166,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
-
 	if err = rm.getPermissionArns(ctx, &resource{ko}); err != nil {
+		return nil, err
+	}
+
+	if err = rm.getResourceShareAssociations(ctx, &resource{ko}); err != nil {
 		return nil, err
 	}
 
@@ -387,7 +390,13 @@ func (rm *resourceManager) sdkUpdate(
 		}
 	}
 
-	if !delta.DifferentExcept("Spec.Tags", "Spec.PermissionARNs") {
+	if delta.DifferentAt("Spec.ResourceARNs") || delta.DifferentAt("Spec.Principals") || delta.DifferentAt("Spec.Sources") {
+		if err := rm.syncResourceShareResources(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Tags", "Spec.PermissionARNs", "Spec.ResourceARNs", "Spec.Principals", "Spec.Sources") {
 		return desired, nil
 	}
 
@@ -567,8 +576,19 @@ func (rm *resourceManager) updateConditions(
 // and if the exception indicates that it is a Terminal exception
 // 'Terminal' exception are specified in generator configuration
 func (rm *resourceManager) terminalAWSError(err error) bool {
-	// No terminal_errors specified for this resource in generator config
-	return false
+	if err == nil {
+		return false
+	}
+	awsErr, ok := ackerr.AWSError(err)
+	if !ok {
+		return false
+	}
+	switch awsErr.Code() {
+	case "MalformedArnException":
+		return true
+	default:
+		return false
+	}
 }
 
 func (rm *resourceManager) newTag(

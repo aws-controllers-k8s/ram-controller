@@ -10,6 +10,12 @@
 		}
 	}
 
-	if !delta.DifferentExcept("Spec.Tags", "Spec.PermissionARNs") {
+	if delta.DifferentAt("Spec.ResourceARNs") || delta.DifferentAt("Spec.Principals") || delta.DifferentAt("Spec.Sources") {
+		if err := rm.syncResources(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Tags", "Spec.PermissionARNs", "Spec.ResourceARNs", "Spec.Principals", "Spec.Sources") {
 		return desired, nil
 	}

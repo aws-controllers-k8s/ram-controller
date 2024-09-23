@@ -18,6 +18,7 @@ import pytest
 import time
 import logging
 import boto3
+import logging
 
 from acktest.resources import random_suffix_name
 from acktest.k8s import resource as k8s
@@ -30,7 +31,7 @@ RESOURCE_KIND = "ResourceShare"
 RESOURCE_PLURAL = "resourceshares"
 
 CREATE_WAIT_AFTER_SECONDS = 5
-MODIFY_WAIT_AFTER_SECONDS = 10
+MODIFY_WAIT_AFTER_SECONDS = 20
 DELETE_WAIT_AFTER_SECONDS = 20
 
 
@@ -63,6 +64,35 @@ def resource_share():
 
     yield cr, ref
 
+@pytest.fixture(scope="module")
+def resource_share_association():
+    resource_name = random_suffix_name("resource-share", 24)
+
+    subnet = get_bootstrap_resources().RamVPC.public_subnets
+    subnet_arn = f"arn:aws:ec2:{subnet.region}:{subnet.account_id}:subnet/{subnet.subnet_ids[0]}"
+
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["RESOURCE_SHARE_NAME"] = resource_name
+    replacements["RESOURCE_ARN"] = subnet_arn
+
+    # Load ResourceShare CR
+    resource_data = load_ram_resource(
+        "ram_resource_share_association",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+
+    # Create k8s resource
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resource_name, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    ram_resource_share.wait_until_exists(resource_name)
+
+    yield cr, ref
 
 @service_marker
 @pytest.mark.canary
@@ -161,4 +191,38 @@ class TestResourceShare:
         assert deleted
 
         _, deleted = k8s.delete_custom_resource(permission_ref, period_length=DELETE_WAIT_AFTER_SECONDS)
+        assert deleted
+
+    def test_resource_association(self, resource_share_association):
+
+        res, ref = resource_share_association
+
+        time.sleep(CREATE_WAIT_AFTER_SECONDS)
+
+        # Verify state and spec have values we need to test
+        cr = k8s.get_resource(ref)
+        assert cr is not None
+        assert 'spec' in cr
+        assert 'allowExternalPrincipals' in cr['spec']
+        assert cr['spec']['allowExternalPrincipals'] == True
+        assert 'resourceARNs' in cr['spec']
+        assert len(cr['spec']['resourceARNs']) == 1
+        assert 'status' in cr
+        assert 'status' in cr['status']
+        assert cr['status']['status'] == "ACTIVE"
+        
+        subnet_arn = cr['spec']['resourceARNs'][0]
+        resource_share_arn = cr['status']['ackResourceMetadata']['arn']
+
+        associated_resource = ram_resource_share.list_associated_resources(arn=resource_share_arn)
+
+        assert 'status' in associated_resource
+        assert associated_resource['status'] == "ASSOCIATED"
+        assert associated_resource['associatedEntity'] == subnet_arn
+
+        # Delete k8s resource
+        _, deleted = k8s.delete_custom_resource(
+            ref,
+            period_length=DELETE_WAIT_AFTER_SECONDS,
+        )
         assert deleted

@@ -134,7 +134,7 @@ func (rm *resourceManager) syncPermissions(
 	desiredPermissions := desired.ko.Spec.PermissionARNs
 	latestPermissions := latest.ko.Spec.PermissionARNs
 
-	toAdd, toDelete := comparePermissionArns(desiredPermissions, latestPermissions)
+	toAdd, toDelete := compareStringSlices(desiredPermissions, latestPermissions)
 
 	if len(toDelete) > 0 {
 		rlog.Debug("disassociating permissions from ResourceShare resource", "permissionArns", toDelete)
@@ -173,7 +173,7 @@ func (rm *resourceManager) syncPermissions(
 	return nil
 }
 
-func comparePermissionArns(a, b []*string) ([]*string, []*string) {
+func compareStringSlices(a, b []*string) ([]*string, []*string) {
 	toAdd := make([]*string, 0, len(a))
 	toDelete := make([]*string, 0, len(a))
 
@@ -231,4 +231,121 @@ func (rm *resourceManager) getPermissionArns(ctx context.Context, r *resource) (
 	}
 
 	return nil
+}
+
+func (rm *resourceManager) syncResourceShareResources(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.syncResources")
+	defer func() {
+		exit(err)
+	}()
+
+	resourceShareArn := latest.ko.Status.ACKResourceMetadata.ARN
+
+	desiredPrincipals := desired.ko.Spec.Principals
+	latestPrincipals := latest.ko.Spec.Principals
+
+	desiredResourceArns := desired.ko.Spec.ResourceARNs
+	latestResourceArns := latest.ko.Spec.ResourceARNs
+
+	desiredSources := desired.ko.Spec.Sources
+	latestSources := latest.ko.Spec.Sources
+
+	toAddPrincipals, toDeletePrincipals := compareStringSlices(desiredPrincipals, latestPrincipals)
+	toAddResources, toDeleteResources := compareStringSlices(desiredResourceArns, latestResourceArns)
+	toAddSources, toDeleteSources := compareStringSlices(desiredSources, latestSources)
+
+	if len(toDeletePrincipals)+len(toDeleteResources)+len(toDeleteSources) > 0 {
+		rlog.Debug("disassociationg resources from ResourceShare")
+		_, err = rm.sdkapi.DisassociateResourceShareWithContext(
+			ctx,
+			&svcsdk.DisassociateResourceShareInput{
+				ResourceShareArn: (*string)(resourceShareArn),
+				Principals:       toDeletePrincipals,
+				ResourceArns:     toDeleteResources,
+				Sources:          toDeleteSources,
+			},
+		)
+		rm.metrics.RecordAPICall("UPDATE", "DisassociateResourceShare", err)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(toAddPrincipals)+len(toAddResources)+len(toAddSources) > 0 {
+		rlog.Debug("associating resources to ResourceShare")
+		_, err = rm.sdkapi.AssociateResourceShareWithContext(
+			ctx,
+			&svcsdk.AssociateResourceShareInput{
+				ResourceShareArn: (*string)(resourceShareArn),
+				Principals:       toAddPrincipals,
+				ResourceArns:     toAddResources,
+				Sources:          toAddSources,
+			},
+		)
+		rm.metrics.RecordAPICall("UPDATE", "AssociateResourceShare", err)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rm *resourceManager) getResourceShareAssociations(
+	ctx context.Context,
+	r *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.getResourceShareAssociations")
+	defer func() {
+		exit(err)
+	}()
+	if r == nil || r.ko == nil || r.ko.Status.ACKResourceMetadata == nil || r.ko.Status.ACKResourceMetadata.ARN == nil {
+		return nil
+	}
+	resourceArn := r.ko.Status.ACKResourceMetadata.ARN
+	r.ko.Spec.Principals, err = rm.setResourceShareAssociation(ctx, "PRINCIPAL", *((*string)(resourceArn)))
+	if err != nil {
+		return err
+	}
+	r.ko.Spec.ResourceARNs, err = rm.setResourceShareAssociation(ctx, "RESOURCE", *((*string)(resourceArn)))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (rm *resourceManager) setResourceShareAssociation(
+	ctx context.Context,
+	resresourceType string,
+	resourceArn string,
+) (slices []*string, err error) {
+
+	resp, err := rm.sdkapi.GetResourceShareAssociationsWithContext(
+		ctx,
+		&svcsdk.GetResourceShareAssociationsInput{
+			AssociationType:   &resresourceType,
+			ResourceShareArns: []*string{&resourceArn},
+		},
+	)
+
+	slices = make([]*string, 0)
+	rm.metrics.RecordAPICall("READ_MANY", "GetResourceShareAssociations", err)
+	if err != nil {
+		return nil, err
+	}
+	if resp.ResourceShareAssociations != nil {
+		for _, p := range resp.ResourceShareAssociations {
+			if *p.Status == svcsdk.ResourceShareAssociationStatusAssociated {
+				slices = append(slices, p.AssociatedEntity)
+			}
+		}
+	}
+	return slices, err
 }
