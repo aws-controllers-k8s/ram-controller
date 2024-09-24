@@ -8,6 +8,9 @@ ignore:
       - PermissionVersion
 resources:
   ResourceShare:
+    exceptions:
+      terminal_codes:
+        - MalformedArnException
     fields:
       PermissionARNs:
         references:
@@ -31,6 +34,9 @@ resources:
       sdk_file_end:
         template_path: hooks/resource_share/sdk_file_end.go.tpl
   Permission:
+    exceptions:
+      terminal_codes:
+        - InvalidParameterException
     hooks:
       sdk_read_one_post_set_output:
         template_path: hooks/permission/sdk_read_one_post_set_output.go.tpl
