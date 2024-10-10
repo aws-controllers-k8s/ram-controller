@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.2
   name: permissions.ram.services.k8s.aws
 spec:
   group: ram.services.k8s.aws
@@ -49,9 +49,7 @@ spec:
                   A string in JSON format string that contains the following elements of a
                   resource-based policy:
 
-
                     - Effect: must be set to ALLOW.
-
 
                     - Action: specifies the actions that are allowed by this customer managed
                       permission. The list must contain only actions that are supported by the
@@ -60,13 +58,11 @@ spec:
                       services (https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html)
                       in the Identity and Access Management User Guide.
 
-
                     - Condition: (optional) specifies conditional parameters that must evaluate
                       to true when a user attempts an action for that action to be allowed.
                       For more information about the Condition element, see IAM policies: Condition
                       element (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html)
                       in the Identity and Access Management User Guide.
-
 
                   This template can't include either the Resource or Principal elements. Those
                   are both filled in by RAM when it instantiates the resource-based policy
@@ -78,7 +74,6 @@ spec:
                 description: |-
                   Specifies the name of the resource type that this customer managed permission
                   applies to.
-
 
                   The format is <service-code>:<resource-type> and is not case sensitive. For
                   example, to specify an Amazon EC2 Subnet, you can use the string ec2:subnet.
@@ -95,7 +90,6 @@ spec:
                     resources to help organize and categorize them. You can also use them to
                     help you secure your resources. For more information, see Controlling access
                     to Amazon Web Services resources using tags (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_tags.html).
-
 
                     For more information about tags, see Tagging Amazon Web Services resources
                     (https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html) in the Amazon
@@ -129,7 +123,6 @@ spec:
                       when it has verified that an "adopted" resource (a resource where the
                       ARN annotation was set by the Kubernetes user on the CR) exists and
                       matches the supplied CR's Spec field values.
-                      TODO(vijat@): Find a better strategy for resources that do not have ARN in CreateOutputResponse
                       https://github.com/aws/aws-controllers-k8s/issues/270
                     type: string
                   ownerAccountID:
@@ -194,13 +187,11 @@ spec:
                   Indicates what features are available for this resource share. This parameter
                   can have one of the following values:
 
-
                      * STANDARD – A resource share that supports all functionality. These
                      resource shares are visible to all principals you share the resource share
                      with. You can modify these resource shares in RAM using the console or
                      APIs. This resource share might have been created by RAM, or it might
                      have been CREATED_FROM_POLICY and then promoted.
-
 
                      * CREATED_FROM_POLICY – The customer manually shared a resource by attaching
                      a resource-based policy. That policy did not match any existing managed
@@ -209,7 +200,6 @@ spec:
                      of resource share is visible only to the Amazon Web Services account that
                      created it. You can't modify it in RAM unless you promote it. For more
                      information, see PromoteResourceShareCreatedFromPolicy.
-
 
                      * PROMOTING_TO_STANDARD – This resource share was originally CREATED_FROM_POLICY,
                      but the customer ran the PromoteResourceShareCreatedFromPolicy and that
@@ -228,11 +218,9 @@ spec:
                 description: |-
                   The type of managed permission. This can be one of the following values:
 
-
                      * AWS_MANAGED – Amazon Web Services created and manages this managed
                      permission. You can associate it with your resource shares, but you can't
                      modify it.
-
 
                      * CUSTOMER_MANAGED – You, or another principal in your account created
                      this managed permission. You can associate it with your resource shares
