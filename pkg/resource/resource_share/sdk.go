@@ -28,8 +28,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/ram"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/ram"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/ram/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +42,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.RAM{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.ResourceShare{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +50,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -72,18 +74,17 @@ func (rm *resourceManager) sdkFind(
 	if err != nil {
 		return nil, err
 	}
-	var resOwner string
 	if r.ko.Status.OwningAccountID != nil && *r.ko.Status.OwningAccountID == string(rm.awsAccountID) {
-		resOwner = "SELF"
+		input.ResourceOwner = svcsdktypes.ResourceOwnerSelf
 	} else {
-		resOwner = "OTHER-ACCOUNTS"
+		input.ResourceOwner = svcsdktypes.ResourceOwnerOtherAccounts
 	}
-	input.ResourceOwner = &resOwner
 	var resp *svcsdk.GetResourceSharesOutput
-	resp, err = rm.sdkapi.GetResourceSharesWithContext(ctx, input)
+	resp, err = rm.sdkapi.GetResourceShares(ctx, input)
 	rm.metrics.RecordAPICall("READ_MANY", "GetResourceShares", err)
 	if err != nil {
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "UnknownResourceException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -105,8 +106,8 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Status.CreationTime = nil
 		}
-		if elem.FeatureSet != nil {
-			ko.Status.FeatureSet = elem.FeatureSet
+		if elem.FeatureSet != "" {
+			ko.Status.FeatureSet = aws.String(string(elem.FeatureSet))
 		} else {
 			ko.Status.FeatureSet = nil
 		}
@@ -132,8 +133,8 @@ func (rm *resourceManager) sdkFind(
 			tmpARN := ackv1alpha1.AWSResourceName(*elem.ResourceShareArn)
 			ko.Status.ACKResourceMetadata.ARN = &tmpARN
 		}
-		if elem.Status != nil {
-			ko.Status.Status = elem.Status
+		if elem.Status != "" {
+			ko.Status.Status = aws.String(string(elem.Status))
 		} else {
 			ko.Status.Status = nil
 		}
@@ -195,7 +196,7 @@ func (rm *resourceManager) newListRequestPayload(
 	res := &svcsdk.GetResourceSharesInput{}
 
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 
 	return res, nil
@@ -220,7 +221,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateResourceShareOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateResourceShareWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateResourceShare(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateResourceShare", err)
 	if err != nil {
 		return nil, err
@@ -239,8 +240,8 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Status.CreationTime = nil
 	}
-	if resp.ResourceShare.FeatureSet != nil {
-		ko.Status.FeatureSet = resp.ResourceShare.FeatureSet
+	if resp.ResourceShare.FeatureSet != "" {
+		ko.Status.FeatureSet = aws.String(string(resp.ResourceShare.FeatureSet))
 	} else {
 		ko.Status.FeatureSet = nil
 	}
@@ -266,8 +267,8 @@ func (rm *resourceManager) sdkCreate(
 		arn := ackv1alpha1.AWSResourceName(*resp.ResourceShare.ResourceShareArn)
 		ko.Status.ACKResourceMetadata.ARN = &arn
 	}
-	if resp.ResourceShare.Status != nil {
-		ko.Status.Status = resp.ResourceShare.Status
+	if resp.ResourceShare.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResourceShare.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -306,60 +307,36 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateResourceShareInput{}
 
 	if r.ko.Spec.AllowExternalPrincipals != nil {
-		res.SetAllowExternalPrincipals(*r.ko.Spec.AllowExternalPrincipals)
+		res.AllowExternalPrincipals = r.ko.Spec.AllowExternalPrincipals
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.PermissionARNs != nil {
-		f2 := []*string{}
-		for _, f2iter := range r.ko.Spec.PermissionARNs {
-			var f2elem string
-			f2elem = *f2iter
-			f2 = append(f2, &f2elem)
-		}
-		res.SetPermissionArns(f2)
+		res.PermissionArns = aws.ToStringSlice(r.ko.Spec.PermissionARNs)
 	}
 	if r.ko.Spec.Principals != nil {
-		f3 := []*string{}
-		for _, f3iter := range r.ko.Spec.Principals {
-			var f3elem string
-			f3elem = *f3iter
-			f3 = append(f3, &f3elem)
-		}
-		res.SetPrincipals(f3)
+		res.Principals = aws.ToStringSlice(r.ko.Spec.Principals)
 	}
 	if r.ko.Spec.ResourceARNs != nil {
-		f4 := []*string{}
-		for _, f4iter := range r.ko.Spec.ResourceARNs {
-			var f4elem string
-			f4elem = *f4iter
-			f4 = append(f4, &f4elem)
-		}
-		res.SetResourceArns(f4)
+		res.ResourceArns = aws.ToStringSlice(r.ko.Spec.ResourceARNs)
 	}
 	if r.ko.Spec.Sources != nil {
-		f5 := []*string{}
-		for _, f5iter := range r.ko.Spec.Sources {
-			var f5elem string
-			f5elem = *f5iter
-			f5 = append(f5, &f5elem)
-		}
-		res.SetSources(f5)
+		res.Sources = aws.ToStringSlice(r.ko.Spec.Sources)
 	}
 	if r.ko.Spec.Tags != nil {
-		f6 := []*svcsdk.Tag{}
+		f6 := []svcsdktypes.Tag{}
 		for _, f6iter := range r.ko.Spec.Tags {
-			f6elem := &svcsdk.Tag{}
+			f6elem := &svcsdktypes.Tag{}
 			if f6iter.Key != nil {
-				f6elem.SetKey(*f6iter.Key)
+				f6elem.Key = f6iter.Key
 			}
 			if f6iter.Value != nil {
-				f6elem.SetValue(*f6iter.Value)
+				f6elem.Value = f6iter.Value
 			}
-			f6 = append(f6, f6elem)
+			f6 = append(f6, *f6elem)
 		}
-		res.SetTags(f6)
+		res.Tags = f6
 	}
 
 	return res, nil
@@ -407,7 +384,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateResourceShareOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateResourceShareWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateResourceShare(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateResourceShare", err)
 	if err != nil {
 		return nil, err
@@ -430,13 +407,13 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.UpdateResourceShareInput{}
 
 	if r.ko.Spec.AllowExternalPrincipals != nil {
-		res.SetAllowExternalPrincipals(*r.ko.Spec.AllowExternalPrincipals)
+		res.AllowExternalPrincipals = r.ko.Spec.AllowExternalPrincipals
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetResourceShareArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.ResourceShareArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -458,7 +435,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteResourceShareOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteResourceShareWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteResourceShare(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteResourceShare", err)
 	return nil, err
 }
@@ -471,7 +448,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteResourceShareInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetResourceShareArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.ResourceShareArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -579,28 +556,15 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "MalformedArnException":
 		return true
 	default:
 		return false
 	}
-}
-
-func (rm *resourceManager) newTag(
-	c svcapitypes.Tag,
-) *svcsdk.Tag {
-	res := &svcsdk.Tag{}
-	if c.Key != nil {
-		res.SetKey(*c.Key)
-	}
-	if c.Value != nil {
-		res.SetValue(*c.Value)
-	}
-
-	return res
 }

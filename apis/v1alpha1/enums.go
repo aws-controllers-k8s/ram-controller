@@ -27,16 +27,16 @@ type PermissionStatus_SDK string
 
 const (
 	PermissionStatus_SDK_ATTACHABLE   PermissionStatus_SDK = "ATTACHABLE"
-	PermissionStatus_SDK_UNATTACHABLE PermissionStatus_SDK = "UNATTACHABLE"
-	PermissionStatus_SDK_DELETING     PermissionStatus_SDK = "DELETING"
 	PermissionStatus_SDK_DELETED      PermissionStatus_SDK = "DELETED"
+	PermissionStatus_SDK_DELETING     PermissionStatus_SDK = "DELETING"
+	PermissionStatus_SDK_UNATTACHABLE PermissionStatus_SDK = "UNATTACHABLE"
 )
 
 type PermissionType string
 
 const (
-	PermissionType_CUSTOMER_MANAGED PermissionType = "CUSTOMER_MANAGED"
 	PermissionType_AWS_MANAGED      PermissionType = "AWS_MANAGED"
+	PermissionType_CUSTOMER_MANAGED PermissionType = "CUSTOMER_MANAGED"
 )
 
 type PermissionTypeFilter string
@@ -50,41 +50,41 @@ const (
 type ReplacePermissionAssociationsWorkStatus string
 
 const (
-	ReplacePermissionAssociationsWorkStatus_IN_PROGRESS ReplacePermissionAssociationsWorkStatus = "IN_PROGRESS"
 	ReplacePermissionAssociationsWorkStatus_COMPLETED   ReplacePermissionAssociationsWorkStatus = "COMPLETED"
 	ReplacePermissionAssociationsWorkStatus_FAILED      ReplacePermissionAssociationsWorkStatus = "FAILED"
+	ReplacePermissionAssociationsWorkStatus_IN_PROGRESS ReplacePermissionAssociationsWorkStatus = "IN_PROGRESS"
 )
 
 type ResourceOwner string
 
 const (
-	ResourceOwner_SELF           ResourceOwner = "SELF"
 	ResourceOwner_OTHER_ACCOUNTS ResourceOwner = "OTHER-ACCOUNTS"
+	ResourceOwner_SELF           ResourceOwner = "SELF"
 )
 
 type ResourceRegionScope string
 
 const (
-	ResourceRegionScope_REGIONAL ResourceRegionScope = "REGIONAL"
 	ResourceRegionScope_GLOBAL   ResourceRegionScope = "GLOBAL"
+	ResourceRegionScope_REGIONAL ResourceRegionScope = "REGIONAL"
 )
 
 type ResourceRegionScopeFilter string
 
 const (
 	ResourceRegionScopeFilter_ALL      ResourceRegionScopeFilter = "ALL"
-	ResourceRegionScopeFilter_REGIONAL ResourceRegionScopeFilter = "REGIONAL"
 	ResourceRegionScopeFilter_GLOBAL   ResourceRegionScopeFilter = "GLOBAL"
+	ResourceRegionScopeFilter_REGIONAL ResourceRegionScopeFilter = "REGIONAL"
 )
 
 type ResourceShareAssociationStatus string
 
 const (
-	ResourceShareAssociationStatus_ASSOCIATING    ResourceShareAssociationStatus = "ASSOCIATING"
 	ResourceShareAssociationStatus_ASSOCIATED     ResourceShareAssociationStatus = "ASSOCIATED"
-	ResourceShareAssociationStatus_FAILED         ResourceShareAssociationStatus = "FAILED"
-	ResourceShareAssociationStatus_DISASSOCIATING ResourceShareAssociationStatus = "DISASSOCIATING"
+	ResourceShareAssociationStatus_ASSOCIATING    ResourceShareAssociationStatus = "ASSOCIATING"
 	ResourceShareAssociationStatus_DISASSOCIATED  ResourceShareAssociationStatus = "DISASSOCIATED"
+	ResourceShareAssociationStatus_DISASSOCIATING ResourceShareAssociationStatus = "DISASSOCIATING"
+	ResourceShareAssociationStatus_FAILED         ResourceShareAssociationStatus = "FAILED"
 )
 
 type ResourceShareAssociationType string
@@ -105,28 +105,28 @@ const (
 type ResourceShareInvitationStatus string
 
 const (
-	ResourceShareInvitationStatus_PENDING  ResourceShareInvitationStatus = "PENDING"
 	ResourceShareInvitationStatus_ACCEPTED ResourceShareInvitationStatus = "ACCEPTED"
-	ResourceShareInvitationStatus_REJECTED ResourceShareInvitationStatus = "REJECTED"
 	ResourceShareInvitationStatus_EXPIRED  ResourceShareInvitationStatus = "EXPIRED"
+	ResourceShareInvitationStatus_PENDING  ResourceShareInvitationStatus = "PENDING"
+	ResourceShareInvitationStatus_REJECTED ResourceShareInvitationStatus = "REJECTED"
 )
 
 type ResourceShareStatus_SDK string
 
 const (
-	ResourceShareStatus_SDK_PENDING  ResourceShareStatus_SDK = "PENDING"
 	ResourceShareStatus_SDK_ACTIVE   ResourceShareStatus_SDK = "ACTIVE"
-	ResourceShareStatus_SDK_FAILED   ResourceShareStatus_SDK = "FAILED"
-	ResourceShareStatus_SDK_DELETING ResourceShareStatus_SDK = "DELETING"
 	ResourceShareStatus_SDK_DELETED  ResourceShareStatus_SDK = "DELETED"
+	ResourceShareStatus_SDK_DELETING ResourceShareStatus_SDK = "DELETING"
+	ResourceShareStatus_SDK_FAILED   ResourceShareStatus_SDK = "FAILED"
+	ResourceShareStatus_SDK_PENDING  ResourceShareStatus_SDK = "PENDING"
 )
 
 type ResourceStatus string
 
 const (
 	ResourceStatus_AVAILABLE                   ResourceStatus = "AVAILABLE"
-	ResourceStatus_ZONAL_RESOURCE_INACCESSIBLE ResourceStatus = "ZONAL_RESOURCE_INACCESSIBLE"
 	ResourceStatus_LIMIT_EXCEEDED              ResourceStatus = "LIMIT_EXCEEDED"
-	ResourceStatus_UNAVAILABLE                 ResourceStatus = "UNAVAILABLE"
 	ResourceStatus_PENDING                     ResourceStatus = "PENDING"
+	ResourceStatus_UNAVAILABLE                 ResourceStatus = "UNAVAILABLE"
+	ResourceStatus_ZONAL_RESOURCE_INACCESSIBLE ResourceStatus = "ZONAL_RESOURCE_INACCESSIBLE"
 )

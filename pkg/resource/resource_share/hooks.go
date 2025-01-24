@@ -18,7 +18,9 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/ram"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/ram"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/ram/types"
 
 	svcapitypes "github.com/aws-controllers-k8s/ram-controller/apis/v1alpha1"
 )
@@ -52,9 +54,10 @@ func (rm *resourceManager) syncTags(
 	if len(toDeleteTagKeys) > 0 {
 		rlog.Debug("removing tags from ResourceShare resource", "tags", toDeleteTagKeys)
 		_, err = rm.sdkapi.UntagResource(
+			ctx,
 			&svcsdk.UntagResourceInput{
 				ResourceShareArn: (*string)(resourceArn),
-				TagKeys:          toDeleteTagKeys,
+				TagKeys:          aws.ToStringSlice(toDeleteTagKeys),
 			},
 		)
 		rm.metrics.RecordAPICall("UPDATE", "UntagResource", err)
@@ -67,6 +70,7 @@ func (rm *resourceManager) syncTags(
 	if len(toAdd) > 0 {
 		rlog.Debug("adding tags to ResourceShare resource", "tags", toAdd)
 		_, err = rm.sdkapi.TagResource(
+			ctx,
 			&svcsdk.TagResourceInput{
 				ResourceShareArn: (*string)(resourceArn),
 				Tags:             rm.sdkTags(toAdd),
@@ -84,7 +88,7 @@ func (rm *resourceManager) syncTags(
 // sdkTags converts *svcapitypes.Tag array to a *svcsdk.Tag array
 func (rm *resourceManager) sdkTags(
 	tags []*svcapitypes.Tag,
-) (sdktags []*svcsdk.Tag) {
+) (sdktags []svcsdktypes.Tag) {
 
 	for _, i := range tags {
 		sdktag := rm.newTag(*i)
@@ -139,11 +143,11 @@ func (rm *resourceManager) syncPermissions(
 	if len(toDelete) > 0 {
 		rlog.Debug("disassociating permissions from ResourceShare resource", "permissionArns", toDelete)
 		for _, permission := range toDelete {
-			_, err = rm.sdkapi.DisassociateResourceSharePermissionWithContext(
+			_, err = rm.sdkapi.DisassociateResourceSharePermission(
 				ctx,
 				&svcsdk.DisassociateResourceSharePermissionInput{
 					ResourceShareArn: (*string)(resourceArn),
-					PermissionArn:    permission,
+					PermissionArn:    &permission,
 				},
 			)
 			rm.metrics.RecordAPICall("UPDATE", "DisassociateResourceSharePermission", err)
@@ -156,11 +160,11 @@ func (rm *resourceManager) syncPermissions(
 	if len(toAdd) > 0 {
 		rlog.Debug("associating permissions to ResourceShare resource", "permissionArns", toAdd)
 		for _, permission := range toAdd {
-			_, err = rm.sdkapi.AssociateResourceSharePermissionWithContext(
+			_, err = rm.sdkapi.AssociateResourceSharePermission(
 				ctx,
 				&svcsdk.AssociateResourceSharePermissionInput{
 					ResourceShareArn: (*string)(resourceArn),
-					PermissionArn:    permission,
+					PermissionArn:    &permission,
 				},
 			)
 			rm.metrics.RecordAPICall("UPDATE", "AssociateResourceSharePermission", err)
@@ -173,9 +177,9 @@ func (rm *resourceManager) syncPermissions(
 	return nil
 }
 
-func compareStringSlices(a, b []*string) ([]*string, []*string) {
-	toAdd := make([]*string, 0, len(a))
-	toDelete := make([]*string, 0, len(a))
+func compareStringSlices(a, b []*string) ([]string, []string) {
+	toAdd := make([]string, 0, len(a))
+	toDelete := make([]string, 0, len(a))
 
 	am := make(map[string]bool)
 
@@ -185,7 +189,7 @@ func compareStringSlices(a, b []*string) ([]*string, []*string) {
 
 	for _, v := range b {
 		if _, ok := am[*v]; !ok {
-			toDelete = append(toDelete, v)
+			toDelete = append(toDelete, *v)
 		}
 	}
 
@@ -196,7 +200,7 @@ func compareStringSlices(a, b []*string) ([]*string, []*string) {
 
 	for _, v := range a {
 		if _, ok := bm[*v]; !ok {
-			toAdd = append(toDelete, v)
+			toAdd = append(toDelete, *v)
 		}
 	}
 
@@ -213,6 +217,7 @@ func (rm *resourceManager) getPermissionArns(ctx context.Context, r *resource) (
 		return nil
 	}
 	resp, err := rm.sdkapi.ListResourceSharePermissions(
+		ctx,
 		&svcsdk.ListResourceSharePermissionsInput{
 			ResourceShareArn: (*string)(r.ko.Status.ACKResourceMetadata.ARN),
 		},
@@ -261,7 +266,7 @@ func (rm *resourceManager) syncResourceShareResources(
 
 	if len(toDeletePrincipals)+len(toDeleteResources)+len(toDeleteSources) > 0 {
 		rlog.Debug("disassociationg resources from ResourceShare")
-		_, err = rm.sdkapi.DisassociateResourceShareWithContext(
+		_, err = rm.sdkapi.DisassociateResourceShare(
 			ctx,
 			&svcsdk.DisassociateResourceShareInput{
 				ResourceShareArn: (*string)(resourceShareArn),
@@ -278,7 +283,7 @@ func (rm *resourceManager) syncResourceShareResources(
 
 	if len(toAddPrincipals)+len(toAddResources)+len(toAddSources) > 0 {
 		rlog.Debug("associating resources to ResourceShare")
-		_, err = rm.sdkapi.AssociateResourceShareWithContext(
+		_, err = rm.sdkapi.AssociateResourceShare(
 			ctx,
 			&svcsdk.AssociateResourceShareInput{
 				ResourceShareArn: (*string)(resourceShareArn),
@@ -309,11 +314,11 @@ func (rm *resourceManager) getResourceShareAssociations(
 		return nil
 	}
 	resourceArn := r.ko.Status.ACKResourceMetadata.ARN
-	r.ko.Spec.Principals, err = rm.setResourceShareAssociation(ctx, "PRINCIPAL", *((*string)(resourceArn)))
+	r.ko.Spec.Principals, err = rm.setResourceShareAssociation(ctx, svcsdktypes.ResourceShareAssociationTypePrincipal, *((*string)(resourceArn)))
 	if err != nil {
 		return err
 	}
-	r.ko.Spec.ResourceARNs, err = rm.setResourceShareAssociation(ctx, "RESOURCE", *((*string)(resourceArn)))
+	r.ko.Spec.ResourceARNs, err = rm.setResourceShareAssociation(ctx, svcsdktypes.ResourceShareAssociationTypeResource, *((*string)(resourceArn)))
 	if err != nil {
 		return err
 	}
@@ -323,15 +328,15 @@ func (rm *resourceManager) getResourceShareAssociations(
 
 func (rm *resourceManager) setResourceShareAssociation(
 	ctx context.Context,
-	resresourceType string,
+	resresourceType svcsdktypes.ResourceShareAssociationType,
 	resourceArn string,
 ) (slices []*string, err error) {
 
-	resp, err := rm.sdkapi.GetResourceShareAssociationsWithContext(
+	resp, err := rm.sdkapi.GetResourceShareAssociations(
 		ctx,
 		&svcsdk.GetResourceShareAssociationsInput{
-			AssociationType:   &resresourceType,
-			ResourceShareArns: []*string{&resourceArn},
+			AssociationType:   resresourceType,
+			ResourceShareArns: []string{resourceArn},
 		},
 	)
 
@@ -342,10 +347,24 @@ func (rm *resourceManager) setResourceShareAssociation(
 	}
 	if resp.ResourceShareAssociations != nil {
 		for _, p := range resp.ResourceShareAssociations {
-			if *p.Status == svcsdk.ResourceShareAssociationStatusAssociated {
+			if p.Status == svcsdktypes.ResourceShareAssociationStatusAssociated {
 				slices = append(slices, p.AssociatedEntity)
 			}
 		}
 	}
 	return slices, err
+}
+
+func (rm *resourceManager) newTag(
+	c svcapitypes.Tag,
+) svcsdktypes.Tag {
+	res := svcsdktypes.Tag{}
+	if c.Key != nil {
+		res.Key = c.Key
+	}
+	if c.Value != nil {
+		res.Value = c.Value
+	}
+
+	return res
 }
