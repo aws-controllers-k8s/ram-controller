@@ -19,9 +19,10 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackcondition "github.com/aws-controllers-k8s/runtime/pkg/condition"
-	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/ram"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/ram"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/ram/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -97,6 +98,7 @@ func (rm *resourceManager) updatePermission(
 	permissionArn := (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	version := r.ko.Status.Version
 	resp, err := rm.sdkapi.CreatePermissionVersion(
+		ctx,
 		&svcsdk.CreatePermissionVersionInput{
 			PermissionArn:  permissionArn,
 			PolicyTemplate: r.ko.Spec.PolicyTemplate,
@@ -104,12 +106,6 @@ func (rm *resourceManager) updatePermission(
 	)
 	rm.metrics.RecordAPICall("UPDATE", "CreatePermissionVersion", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
-			return ackerr.NotFound
-		}
 		return err
 	}
 
@@ -128,8 +124,8 @@ func (rm *resourceManager) updatePermission(
 	} else {
 		r.ko.Status.DefaultVersion = nil
 	}
-	if resp.Permission.FeatureSet != nil {
-		r.ko.Status.FeatureSet = resp.Permission.FeatureSet
+	if resp.Permission.FeatureSet != "" {
+		r.ko.Status.FeatureSet = aws.String(string(resp.Permission.FeatureSet))
 	} else {
 		r.ko.Status.FeatureSet = nil
 	}
@@ -148,8 +144,8 @@ func (rm *resourceManager) updatePermission(
 	} else {
 		r.ko.Spec.Name = nil
 	}
-	if resp.Permission.PermissionType != nil {
-		r.ko.Status.PermissionType = resp.Permission.PermissionType
+	if resp.Permission.PermissionType != "" {
+		r.ko.Status.PermissionType = aws.String(string(resp.Permission.PermissionType))
 	} else {
 		r.ko.Status.PermissionType = nil
 	}
@@ -158,8 +154,8 @@ func (rm *resourceManager) updatePermission(
 	} else {
 		r.ko.Spec.ResourceType = nil
 	}
-	if resp.Permission.Status != nil {
-		r.ko.Status.Status = resp.Permission.Status
+	if resp.Permission.Status != "" {
+		r.ko.Status.Status = aws.String(string(resp.Permission.Status))
 	} else {
 		r.ko.Status.Status = nil
 	}
@@ -176,10 +172,12 @@ func (rm *resourceManager) updatePermission(
 	if err != nil {
 		return err
 	}
+	newdv := int32(dv)
 	_, err = rm.sdkapi.SetDefaultPermissionVersion(
+		ctx,
 		&svcsdk.SetDefaultPermissionVersionInput{
 			PermissionArn:     permissionArn,
-			PermissionVersion: &dv,
+			PermissionVersion: &newdv,
 		},
 	)
 	if err != nil {
@@ -205,10 +203,12 @@ func (rm *resourceManager) deleteNonDefaultPermissionVersion(
 	if err != nil {
 		return err
 	}
+	newv := int32(v)
 	_, err = rm.sdkapi.DeletePermissionVersion(
+		ctx,
 		&svcsdk.DeletePermissionVersionInput{
 			PermissionArn:     &permissionArn,
-			PermissionVersion: &v,
+			PermissionVersion: &newv,
 		},
 	)
 	rm.metrics.RecordAPICall("DELETE", "DeletePolicyVersion", err)
@@ -252,9 +252,10 @@ func (rm *resourceManager) syncTags(
 	if len(toDeleteTagKeys) > 0 {
 		rlog.Debug("removing tags from Permission resource", "tags", toDeleteTagKeys)
 		_, err = rm.sdkapi.UntagResource(
+			ctx,
 			&svcsdk.UntagResourceInput{
 				ResourceArn: (*string)(resourceArn),
-				TagKeys:     toDeleteTagKeys,
+				TagKeys:     aws.ToStringSlice(toDeleteTagKeys),
 			},
 		)
 		rm.metrics.RecordAPICall("UPDATE", "UntagResource", err)
@@ -263,6 +264,7 @@ func (rm *resourceManager) syncTags(
 	if len(toAdd) > 0 {
 		rlog.Debug("adding tags to Permission resource", "tags", toAdd)
 		_, err := rm.sdkapi.TagResource(
+			ctx,
 			&svcsdk.TagResourceInput{
 				ResourceArn: (*string)(resourceArn),
 				Tags:        rm.sdkTags(toAdd),
@@ -280,7 +282,7 @@ func (rm *resourceManager) syncTags(
 // sdkTags converts *svcapitypes.Tag array to a *svcsdk.Tag array
 func (rm *resourceManager) sdkTags(
 	tags []*svcapitypes.Tag,
-) (sdktags []*svcsdk.Tag) {
+) (sdktags []svcsdktypes.Tag) {
 
 	for _, i := range tags {
 		sdktag := rm.newTag(*i)
@@ -316,13 +318,13 @@ func compareTags(
 
 func (rm *resourceManager) newTag(
 	c svcapitypes.Tag,
-) *svcsdk.Tag {
-	res := &svcsdk.Tag{}
+) svcsdktypes.Tag {
+	res := svcsdktypes.Tag{}
 	if c.Key != nil {
-		res.SetKey(*c.Key)
+		res.Key = c.Key
 	}
 	if c.Value != nil {
-		res.SetValue(*c.Value)
+		res.Value = c.Value
 	}
 	return res
 }

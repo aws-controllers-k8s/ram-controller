@@ -28,8 +28,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/ram"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/ram"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/ram/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +42,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.RAM{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.Permission{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +50,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +76,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.GetPermissionOutput
-	resp, err = rm.sdkapi.GetPermissionWithContext(ctx, input)
+	resp, err = rm.sdkapi.GetPermission(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "GetPermission", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "UnknownResourceException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -107,8 +107,8 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Status.DefaultVersion = nil
 	}
-	if resp.Permission.FeatureSet != nil {
-		ko.Status.FeatureSet = resp.Permission.FeatureSet
+	if resp.Permission.FeatureSet != "" {
+		ko.Status.FeatureSet = aws.String(string(resp.Permission.FeatureSet))
 	} else {
 		ko.Status.FeatureSet = nil
 	}
@@ -127,8 +127,8 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.Name = nil
 	}
-	if resp.Permission.PermissionType != nil {
-		ko.Status.PermissionType = resp.Permission.PermissionType
+	if resp.Permission.PermissionType != "" {
+		ko.Status.PermissionType = aws.String(string(resp.Permission.PermissionType))
 	} else {
 		ko.Status.PermissionType = nil
 	}
@@ -137,8 +137,8 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.ResourceType = nil
 	}
-	if resp.Permission.Status != nil {
-		ko.Status.Status = resp.Permission.Status
+	if resp.Permission.Status != "" {
+		ko.Status.Status = aws.String(string(resp.Permission.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -190,7 +190,7 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.GetPermissionInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetPermissionArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.PermissionArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -215,7 +215,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreatePermissionOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreatePermissionWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreatePermission(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreatePermission", err)
 	if err != nil {
 		return nil, err
@@ -241,8 +241,8 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Status.DefaultVersion = nil
 	}
-	if resp.Permission.FeatureSet != nil {
-		ko.Status.FeatureSet = resp.Permission.FeatureSet
+	if resp.Permission.FeatureSet != "" {
+		ko.Status.FeatureSet = aws.String(string(resp.Permission.FeatureSet))
 	} else {
 		ko.Status.FeatureSet = nil
 	}
@@ -261,8 +261,8 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Spec.Name = nil
 	}
-	if resp.Permission.PermissionType != nil {
-		ko.Status.PermissionType = resp.Permission.PermissionType
+	if resp.Permission.PermissionType != "" {
+		ko.Status.PermissionType = aws.String(string(resp.Permission.PermissionType))
 	} else {
 		ko.Status.PermissionType = nil
 	}
@@ -311,27 +311,27 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreatePermissionInput{}
 
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.PolicyTemplate != nil {
-		res.SetPolicyTemplate(*r.ko.Spec.PolicyTemplate)
+		res.PolicyTemplate = r.ko.Spec.PolicyTemplate
 	}
 	if r.ko.Spec.ResourceType != nil {
-		res.SetResourceType(*r.ko.Spec.ResourceType)
+		res.ResourceType = r.ko.Spec.ResourceType
 	}
 	if r.ko.Spec.Tags != nil {
-		f3 := []*svcsdk.Tag{}
+		f3 := []svcsdktypes.Tag{}
 		for _, f3iter := range r.ko.Spec.Tags {
-			f3elem := &svcsdk.Tag{}
+			f3elem := &svcsdktypes.Tag{}
 			if f3iter.Key != nil {
-				f3elem.SetKey(*f3iter.Key)
+				f3elem.Key = f3iter.Key
 			}
 			if f3iter.Value != nil {
-				f3elem.SetValue(*f3iter.Value)
+				f3elem.Value = f3iter.Value
 			}
-			f3 = append(f3, f3elem)
+			f3 = append(f3, *f3elem)
 		}
-		res.SetTags(f3)
+		res.Tags = f3
 	}
 
 	return res, nil
@@ -364,7 +364,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeletePermissionOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeletePermissionWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeletePermission(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeletePermission", err)
 	return nil, err
 }
@@ -377,7 +377,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeletePermissionInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetPermissionArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.PermissionArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -485,11 +485,12 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "InvalidParameterException":
 		return true
 	default:

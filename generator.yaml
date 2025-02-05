@@ -11,6 +11,9 @@ resources:
     exceptions:
       terminal_codes:
         - MalformedArnException
+      errors:
+        404:
+          code: UnknownResourceException
     fields:
       PermissionARNs:
         references:
@@ -31,12 +34,13 @@ resources:
         template_path: hooks/resource_share/sdk_find_read_many_post_build_request.go.tpl
       sdk_read_many_post_set_output:
         template_path: hooks/resource_share/sdk_read_many_post_set_output.go.tpl
-      sdk_file_end:
-        template_path: hooks/resource_share/sdk_file_end.go.tpl
   Permission:
     exceptions:
       terminal_codes:
         - InvalidParameterException
+      errors:
+        404:
+          code: UnknownResourceException
     hooks:
       sdk_read_one_post_set_output:
         template_path: hooks/permission/sdk_read_one_post_set_output.go.tpl

@@ -55,10 +55,9 @@ type PermissionSpec struct {
 	// Specifies the name of the resource type that this customer managed permission
 	// applies to.
 	//
-	// The format is <service-code>:<resource-type> and is not case sensitive. For
-	// example, to specify an Amazon EC2 Subnet, you can use the string ec2:subnet.
-	// To see the list of valid values for this parameter, query the ListResourceTypes
-	// operation.
+	// The format is : and is not case sensitive. For example, to specify an Amazon
+	// EC2 Subnet, you can use the string ec2:subnet. To see the list of valid values
+	// for this parameter, query the ListResourceTypes operation.
 	// +kubebuilder:validation:Required
 	ResourceType *string `json:"resourceType"`
 	// Specifies a list of one or more tag key and value pairs to attach to the
