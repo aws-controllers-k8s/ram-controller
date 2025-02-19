@@ -25,32 +25,36 @@ type PermissionSpec struct {
 
 	// Specifies the name of the customer managed permission. The name must be unique
 	// within the Amazon Web Services Region.
+
 	// +kubebuilder:validation:Required
+
 	Name *string `json:"name"`
 	// A string in JSON format string that contains the following elements of a
 	// resource-based policy:
 	//
-	//   - Effect: must be set to ALLOW.
+	//    * Effect: must be set to ALLOW.
 	//
-	//   - Action: specifies the actions that are allowed by this customer managed
-	//     permission. The list must contain only actions that are supported by the
-	//     specified resource type. For a list of all actions supported by each resource
-	//     type, see Actions, resources, and condition keys for Amazon Web Services
-	//     services (https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html)
-	//     in the Identity and Access Management User Guide.
+	//    * Action: specifies the actions that are allowed by this customer managed
+	//    permission. The list must contain only actions that are supported by the
+	//    specified resource type. For a list of all actions supported by each resource
+	//    type, see Actions, resources, and condition keys for Amazon Web Services
+	//    services (https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html)
+	//    in the Identity and Access Management User Guide.
 	//
-	//   - Condition: (optional) specifies conditional parameters that must evaluate
-	//     to true when a user attempts an action for that action to be allowed.
-	//     For more information about the Condition element, see IAM policies: Condition
-	//     element (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html)
-	//     in the Identity and Access Management User Guide.
+	//    * Condition: (optional) specifies conditional parameters that must evaluate
+	//    to true when a user attempts an action for that action to be allowed.
+	//    For more information about the Condition element, see IAM policies: Condition
+	//    element (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html)
+	//    in the Identity and Access Management User Guide.
 	//
 	// This template can't include either the Resource or Principal elements. Those
 	// are both filled in by RAM when it instantiates the resource-based policy
 	// on each resource shared using this managed permission. The Resource comes
 	// from the ARN of the specific resource that you are sharing. The Principal
 	// comes from the list of identities added to the resource share.
+
 	// +kubebuilder:validation:Required
+
 	PolicyTemplate *string `json:"policyTemplate"`
 	// Specifies the name of the resource type that this customer managed permission
 	// applies to.
@@ -58,10 +62,13 @@ type PermissionSpec struct {
 	// The format is : and is not case sensitive. For example, to specify an Amazon
 	// EC2 Subnet, you can use the string ec2:subnet. To see the list of valid values
 	// for this parameter, query the ListResourceTypes operation.
+
 	// +kubebuilder:validation:Required
+
 	ResourceType *string `json:"resourceType"`
 	// Specifies a list of one or more tag key and value pairs to attach to the
 	// permission.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -72,7 +79,7 @@ type PermissionStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

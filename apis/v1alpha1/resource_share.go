@@ -30,47 +30,56 @@ type ResourceShareSpec struct {
 	// individual Amazon Web Services accounts that are not in your organization.
 	// A value of false only has meaning if your account is a member of an Amazon
 	// Web Services Organization. The default value is true.
+
 	AllowExternalPrincipals *bool `json:"allowExternalPrincipals,omitempty"`
 	// Specifies the name of the resource share.
+
 	// +kubebuilder:validation:Required
+
 	Name *string `json:"name"`
 	// Specifies the Amazon Resource Names (ARNs) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// of the RAM permission to associate with the resource share. If you do not
 	// specify an ARN for the permission, RAM automatically attaches the default
 	// version of the permission for each resource type. You can associate only
 	// one permission with each resource type included in the resource share.
-	PermissionARNs []*string                                  `json:"permissionARNs,omitempty"`
+
+	PermissionARNs []*string `json:"permissionARNs,omitempty"`
+
 	PermissionRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"permissionRefs,omitempty"`
 	// Specifies a list of one or more principals to associate with the resource
 	// share.
 	//
 	// You can include the following values:
 	//
-	//   - An Amazon Web Services account ID, for example: 123456789012
+	//    * An Amazon Web Services account ID, for example: 123456789012
 	//
-	//   - An Amazon Resource Name (ARN) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
-	//     of an organization in Organizations, for example: organizations::123456789012:organization/o-exampleorgid
+	//    * An Amazon Resource Name (ARN) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	//    of an organization in Organizations, for example: organizations::123456789012:organization/o-exampleorgid
 	//
-	//   - An ARN of an organizational unit (OU) in Organizations, for example:
-	//     organizations::123456789012:ou/o-exampleorgid/ou-examplerootid-exampleouid123
+	//    * An ARN of an organizational unit (OU) in Organizations, for example:
+	//    organizations::123456789012:ou/o-exampleorgid/ou-examplerootid-exampleouid123
 	//
-	//   - An ARN of an IAM role, for example: iam::123456789012:role/rolename
+	//    * An ARN of an IAM role, for example: iam::123456789012:role/rolename
 	//
-	//   - An ARN of an IAM user, for example: iam::123456789012user/username
+	//    * An ARN of an IAM user, for example: iam::123456789012user/username
 	//
 	// Not all resource types can be shared with IAM roles and users. For more information,
 	// see Sharing with IAM roles and users (https://docs.aws.amazon.com/ram/latest/userguide/permissions.html#permissions-rbp-supported-resource-types)
 	// in the Resource Access Manager User Guide.
+
 	Principals []*string `json:"principals,omitempty"`
 	// Specifies a list of one or more ARNs of the resources to associate with the
 	// resource share.
+
 	ResourceARNs []*string `json:"resourceARNs,omitempty"`
 	// Specifies from which source accounts the service principal has access to
 	// the resources in this resource share.
+
 	Sources []*string `json:"sources,omitempty"`
 	// A list of one or more tag key and value pairs. The tag key must be present
 	// and not be an empty string. The tag value must be present but can be an empty
 	// string.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -81,7 +90,7 @@ type ResourceShareStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
