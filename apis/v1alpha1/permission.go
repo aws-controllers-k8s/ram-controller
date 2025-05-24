@@ -25,6 +25,8 @@ type PermissionSpec struct {
 
 	// Specifies the name of the customer managed permission. The name must be unique
 	// within the Amazon Web Services Region.
+	//
+	// Regex Pattern: `^[\w.-]*$`
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
 	// A string in JSON format string that contains the following elements of a
