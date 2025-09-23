@@ -126,7 +126,7 @@ class TestResourceShare:
         time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
         # Check resource synced successfully
-        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+        assert k8s.wait_on_condition(ref, "Ready", "True", wait_periods=5)
 
         latest = ram_resource_share.get_resource_shares(resource_share_name=resource_name)
         assert 'tags' in latest
@@ -153,7 +153,7 @@ class TestResourceShare:
 
         time.sleep(CREATE_WAIT_AFTER_SECONDS)
 
-        assert k8s.wait_on_condition(permission_ref, "ACK.ResourceSynced", "True", wait_periods=5)
+        assert k8s.wait_on_condition(permission_ref, "Ready", "True", wait_periods=5)
 
         permission_reference = {
             "from": {
@@ -171,7 +171,7 @@ class TestResourceShare:
         time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
         # Check resource synced successfully
-        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+        assert k8s.wait_on_condition(ref, "Ready", "True", wait_periods=5)
 
         associated_permissions = ram_resource_share.list_associated_permissions(arn=resource_share_arn)
 
