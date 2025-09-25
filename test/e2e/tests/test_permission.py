@@ -111,7 +111,7 @@ class TestPermission:
 		time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
 		# Check resource synced successfully
-		assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+		assert k8s.wait_on_condition(ref, "Ready", "True", wait_periods=5)
 
 		cr = k8s.get_resource(ref)
 		assert 'spec' in cr
@@ -137,7 +137,7 @@ class TestPermission:
 		time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
 		# Check resource synced successfully
-		assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+		assert k8s.wait_on_condition(ref, "Ready", "True", wait_periods=5)
 		
 		cr = k8s.get_resource(ref)
 		assert 'spec' in cr
@@ -179,7 +179,7 @@ class TestPermission:
 		time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
 		# Check resource synced successfully
-		assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+		assert k8s.wait_on_condition(ref, "Ready", "True", wait_periods=5)
 
 		latest = ram_permission.get_permission(resource_arn)
 		assert 'tags' in latest
