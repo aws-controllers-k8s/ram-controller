@@ -17,16 +17,15 @@ package resource_share
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -65,7 +64,7 @@ func newResourceDelta(
 			delta.Add("Spec.PermissionARNs", a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.PermissionRefs, b.ko.Spec.PermissionRefs) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.PermissionRefs, b.ko.Spec.PermissionRefs) {
 		delta.Add("Spec.PermissionRefs", a.ko.Spec.PermissionRefs, b.ko.Spec.PermissionRefs)
 	}
 	if len(a.ko.Spec.Principals) != len(b.ko.Spec.Principals) {
