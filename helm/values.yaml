@@ -152,6 +152,7 @@ reconcile:
   resources:
     - Permission
     - ResourceShare
+    - ResourceShareAccepter
 
 serviceAccount:
   # Specifies whether a service account should be created
