@@ -20,6 +20,7 @@ import (
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackcondition "github.com/aws-controllers-k8s/runtime/pkg/condition"
 	ackcfg "github.com/aws-controllers-k8s/runtime/pkg/config"
+	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackmetrics "github.com/aws-controllers-k8s/runtime/pkg/metrics"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -181,14 +182,28 @@ func (rm *resourceManager) IsSynced(
 	return true, nil
 }
 
-// onError sets the Synced condition to False and returns the resource and error
+// onError updates resource conditions and returns updated resource
+// it returns nil if no condition is updated.
 func (rm *resourceManager) onError(
 	r *resource,
 	err error,
 ) (*resource, error) {
-	errMsg := err.Error()
-	ackcondition.SetSynced(r, corev1.ConditionFalse, &errMsg, nil)
-	return r, err
+	if r == nil {
+		return nil, err
+	}
+	r1, updated := rm.updateConditions(r, false, err)
+	if !updated {
+		return r, err
+	}
+	for _, condition := range r1.Conditions() {
+		if condition.Type == ackv1alpha1.ConditionTypeTerminal &&
+			condition.Status == corev1.ConditionTrue {
+			// resource is in Terminal condition
+			// return Terminal error
+			return r1, ackerr.Terminal
+		}
+	}
+	return r1, err
 }
 
 // onSuccess sets the Synced condition to True and returns the resource
