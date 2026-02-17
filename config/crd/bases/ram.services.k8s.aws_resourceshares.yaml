@@ -41,7 +41,35 @@ spec:
               ResourceShareSpec defines the desired state of ResourceShare.
 
               Describes a resource share in RAM.
+
+              This resource can operate in two modes:
+              1. Create Mode (default): Creates a new resource share and shares resources with principals
+              2. Accept Mode: Accepts an incoming resource share invitation from another account
+
+              To use Accept Mode, set the acceptInvitation field with the ShareARN of the incoming share.
+              In Accept Mode, most other fields (name, principals, resourceARNs, etc.) are ignored.
             properties:
+              acceptInvitation:
+                description: |-
+                  AcceptInvitation configures this resource to accept an incoming share invitation
+                  instead of creating a new share. When set, the controller will:
+                  1. Find the pending invitation for the specified ShareARN
+                  2. Accept the invitation
+                  3. Populate status with invitation details
+
+                  This is mutually exclusive with creating a new share. When acceptInvitation
+                  is set, fields like name, principals, and resourceARNs are ignored.
+
+                  Use this when you want to accept a share from another AWS account.
+                properties:
+                  shareARN:
+                    description: |-
+                      The Amazon Resource Name (ARN) of the resource share to accept.
+                      This should be the ARN of the share that was created by another account.
+                    type: string
+                required:
+                - shareARN
+                type: object
               allowExternalPrincipals:
                 description: |-
                   Specifies whether principals outside your organization in Organizations can
@@ -49,9 +77,14 @@ spec:
                   individual Amazon Web Services accounts that are not in your organization.
                   A value of false only has meaning if your account is a member of an Amazon
                   Web Services Organization. The default value is true.
+
+                  This field is ignored when acceptInvitation is set.
                 type: boolean
               name:
-                description: Specifies the name of the resource share.
+                description: |-
+                  Specifies the name of the resource share.
+
+                  This field is ignored when acceptInvitation is set.
                 type: string
               permissionARNs:
                 description: |-
@@ -60,6 +93,8 @@ spec:
                   specify an ARN for the permission, RAM automatically attaches the default
                   version of the permission for each resource type. You can associate only
                   one permission with each resource type included in the resource share.
+
+                  This field is ignored when acceptInvitation is set.
                 items:
                   type: string
                 type: array
@@ -104,6 +139,8 @@ spec:
                   Not all resource types can be shared with IAM roles and users. For more information,
                   see Sharing with IAM roles and users (https://docs.aws.amazon.com/ram/latest/userguide/permissions.html#permissions-rbp-supported-resource-types)
                   in the Resource Access Manager User Guide.
+
+                  This field is ignored when acceptInvitation is set.
                 items:
                   type: string
                 type: array
@@ -111,6 +148,8 @@ spec:
                 description: |-
                   Specifies a list of one or more ARNs of the resources to associate with the
                   resource share.
+
+                  This field is ignored when acceptInvitation is set.
                 items:
                   type: string
                 type: array
@@ -118,6 +157,8 @@ spec:
                 description: |-
                   Specifies from which source accounts the service principal has access to
                   the resources in this resource share.
+
+                  This field is ignored when acceptInvitation is set.
                 items:
                   type: string
                 type: array
@@ -126,6 +167,8 @@ spec:
                   A list of one or more tag key and value pairs. The tag key must be present
                   and not be an empty string. The tag value must be present but can be an empty
                   string.
+
+                  This field is ignored when acceptInvitation is set.
                 items:
                   description: |-
                     A structure containing a tag. A tag is metadata that you can attach to your
@@ -143,8 +186,6 @@ spec:
                       type: string
                   type: object
                 type: array
-            required:
-            - name
             type: object
           status:
             description: ResourceShareStatus defines the observed state of ResourceShare
@@ -240,6 +281,23 @@ spec:
                      but the customer ran the PromoteResourceShareCreatedFromPolicy and that
                      operation is still in progress. This value changes to STANDARD when complete.
                 type: string
+              invitationARN:
+                description: |-
+                  The ARN of the invitation that was accepted.
+                  Only populated in Accept Mode.
+                type: string
+              invitationStatus:
+                description: |-
+                  The current status of the invitation.
+                  Possible values: PENDING, ACCEPTED, REJECTED, EXPIRED
+                  Only populated in Accept Mode.
+                type: string
+              invitationTime:
+                description: |-
+                  The date and time when the invitation was sent.
+                  Only populated in Accept Mode.
+                format: date-time
+                type: string
               lastUpdatedTime:
                 description: The date and time when the resource share was last updated.
                 format: date-time
@@ -247,6 +305,33 @@ spec:
               owningAccountID:
                 description: The ID of the Amazon Web Services account that owns the
                   resource share.
+                type: string
+              receiverAccountID:
+                description: |-
+                  The ID of the AWS account that received the invitation.
+                  Only populated in Accept Mode.
+                type: string
+              resources:
+                description: |-
+                  The resources included in the resource share.
+                  Only populated in Accept Mode.
+                items:
+                  type: string
+                type: array
+              senderAccountID:
+                description: |-
+                  The ID of the AWS account that sent the invitation.
+                  Only populated in Accept Mode.
+                type: string
+              shareName:
+                description: |-
+                  The name of the resource share.
+                  Only populated in Accept Mode.
+                type: string
+              shareStatus:
+                description: |-
+                  The current status of the resource share.
+                  Only populated in Accept Mode.
                 type: string
               status:
                 description: The current status of the resource share.

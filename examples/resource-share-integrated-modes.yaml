@@ -1,0 +1,93 @@
+---
+# Example 1: Create Mode (Default)
+# This creates a new resource share in Account A and shares resources with Account B
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: ResourceShare
+metadata:
+  name: my-resource-share
+  namespace: default
+spec:
+  # Create Mode: Specify name and resources to share
+  name: my-shared-resources
+  allowExternalPrincipals: true
+  principals:
+    - "123456789012"  # Account B's AWS account ID
+  resourceARNs:
+    - "arn:aws:ec2:us-west-2:111111111111:subnet/subnet-12345678"
+    - "arn:aws:ec2:us-west-2:111111111111:transit-gateway/tgw-12345678"
+  tags:
+    - key: Environment
+      value: Production
+    - key: Owner
+      value: TeamA
+
+---
+# Example 2: Accept Mode
+# This accepts an incoming resource share invitation in Account B
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: ResourceShare
+metadata:
+  name: accepted-share-from-account-a
+  namespace: default
+spec:
+  # Accept Mode: Specify acceptInvitation with the ShareARN
+  acceptInvitation:
+    shareARN: "arn:aws:ram:us-west-2:111111111111:resource-share/12345678-1234-1234-1234-123456789012"
+  
+  # Note: In Accept Mode, the following fields are ignored:
+  # - name
+  # - allowExternalPrincipals
+  # - principals
+  # - resourceARNs
+  # - permissionARNs
+  # - sources
+  # - tags
+
+---
+# Example 3: Cross-Account Workflow
+# 
+# Step 1: Account A (Sharer) creates a ResourceShare
+# Deploy this in Account A's cluster:
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: ResourceShare
+metadata:
+  name: saas-provider-share
+  namespace: default
+spec:
+  name: saas-provider-resources
+  allowExternalPrincipals: true
+  principals:
+    - "999999999999"  # Customer's AWS account ID
+  resourceARNs:
+    - "arn:aws:ec2:us-west-2:111111111111:subnet/subnet-abcdef12"
+
+---
+# Step 2: Account B (Customer) accepts the invitation
+# Deploy this in Account B's cluster:
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: ResourceShare
+metadata:
+  name: accepted-saas-resources
+  namespace: default
+spec:
+  acceptInvitation:
+    shareARN: "arn:aws:ram:us-west-2:111111111111:resource-share/abcdef12-abcd-abcd-abcd-abcdef123456"
+
+---
+# Example 4: Checking Status in Accept Mode
+# After accepting, the status will include invitation details:
+#
+# status:
+#   ackResourceMetadata:
+#     arn: arn:aws:ram:us-west-2:111111111111:resource-share/abcdef12-abcd-abcd-abcd-abcdef123456
+#   conditions: [...]
+#   invitationARN: arn:aws:ram:us-west-2:111111111111:resource-share-invitation/12345678-1234-1234-1234-123456789012
+#   invitationStatus: ACCEPTED
+#   senderAccountID: "111111111111"
+#   receiverAccountID: "999999999999"
+#   shareName: saas-provider-resources
+#   invitationTime: "2024-01-15T10:30:00Z"
+#   resources:
+#     - "arn:aws:ec2:us-west-2:111111111111:subnet/subnet-abcdef12"
+#   shareStatus: ACCEPTED
+

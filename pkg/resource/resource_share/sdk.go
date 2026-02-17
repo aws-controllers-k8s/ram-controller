@@ -63,6 +63,13 @@ func (rm *resourceManager) sdkFind(
 	defer func() {
 		exit(err)
 	}()
+
+	// Check if we're in Accept Mode (acceptInvitation is set)
+	if r.ko.Spec.AcceptInvitation != nil {
+		return rm.sdkFindAcceptedInvitation(ctx, r)
+	}
+
+	// Original Create Mode logic
 	// If any required fields in the input shape are missing, AWS resource is
 	// not created yet. Return NotFound here to indicate to callers that the
 	// resource isn't yet created.
@@ -184,6 +191,11 @@ func (rm *resourceManager) sdkFind(
 func (rm *resourceManager) requiredFieldsMissingFromReadManyInput(
 	r *resource,
 ) bool {
+	// In Accept Mode, Name is not required (we use ShareARN instead)
+	if r.ko.Spec.AcceptInvitation != nil {
+		return false
+	}
+	// In Create Mode, Name is required
 	return r.ko.Spec.Name == nil
 
 }
@@ -214,6 +226,19 @@ func (rm *resourceManager) sdkCreate(
 	defer func() {
 		exit(err)
 	}()
+
+	// Check if we're in Accept Mode (acceptInvitation is set)
+	if desired.ko.Spec.AcceptInvitation != nil {
+		return rm.sdkAcceptInvitation(ctx, desired)
+	}
+
+	// Create Mode: Validate that name is provided
+	if desired.ko.Spec.Name == nil || *desired.ko.Spec.Name == "" {
+		return nil, ackerr.NewTerminalError(fmt.Errorf(
+			"spec.name is required when not in Accept Mode (acceptInvitation is not set)"))
+	}
+
+	// Original Create Mode logic
 	input, err := rm.newCreateRequestPayload(ctx, desired)
 	if err != nil {
 		return nil, err
@@ -429,6 +454,15 @@ func (rm *resourceManager) sdkDelete(
 	defer func() {
 		exit(err)
 	}()
+
+	// Check if we're in Accept Mode
+	if r.ko.Spec.AcceptInvitation != nil {
+		// In Accept Mode, we need to reject the invitation or leave the share
+		// We don't own the share, so we can't delete it
+		return rm.sdkRejectOrLeaveShare(ctx, r)
+	}
+
+	// Create Mode: Delete the resource share we own
 	input, err := rm.newDeleteRequestPayload(r)
 	if err != nil {
 		return nil, err
@@ -438,6 +472,142 @@ func (rm *resourceManager) sdkDelete(
 	resp, err = rm.sdkapi.DeleteResourceShare(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteResourceShare", err)
 	return nil, err
+}
+
+// sdkRejectOrLeaveShare handles deletion for Accept Mode resources
+// In Accept Mode, we don't own the share, so we need to handle cleanup:
+// 1. If invitation is PENDING: Reject it using RejectResourceShareInvitation
+// 2. If invitation is ACCEPTED: Leave the share using DisassociateResourceShare
+//
+// IMPORTANT: AWS Resource Type Limitations
+// -----------------------------------------
+// Some AWS resource types do not support self-disassociation from resource shares.
+// When a share contains these resource types, attempting to leave the share will
+// result in an OperationNotPermittedException error.
+//
+// Known resource types with this limitation:
+//   - Network Firewall (network-firewall:StatefulRulegroup, network-firewall:StatelessRulegroup, etc.)
+//
+// For these resource types:
+//   - Only the share OWNER can remove principals from the share
+//   - The receiver CANNOT leave the share themselves
+//   - AWS error message: "You cannot leave resource share [...]. The share contains
+//     resources of the following resource types, which don't support this action: [...]"
+//
+// Handling Strategy:
+//   - When OperationNotPermittedException is encountered during deletion, we treat it
+//     as a successful deletion to allow the Kubernetes resource to be cleaned up
+//   - The AWS invitation will remain in ACCEPTED state until the share owner removes
+//     the principal or deletes the share
+//   - This prevents the Kubernetes resource from getting stuck with a finalizer
+//   - A warning is logged to inform operators about the limitation
+//
+// This is expected AWS behavior and not a bug in the controller.
+func (rm *resourceManager) sdkRejectOrLeaveShare(
+	ctx context.Context,
+	r *resource,
+) (latest *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	rlog.Info("Cleaning up resource share in Accept Mode")
+
+	// Get the invitation ARN, status, and share ARN from the resource
+	invitationARN := r.ko.Status.InvitationARN
+	invitationStatus := r.ko.Status.InvitationStatus
+	shareARN := r.ko.Spec.AcceptInvitation.ShareARN
+
+	if shareARN == nil {
+		rlog.Info("No ShareARN in spec, nothing to clean up")
+		return nil, nil
+	}
+
+	if invitationARN == nil || *invitationARN == "" {
+		// No invitation ARN in status, try to find it
+		listInput := &svcsdk.GetResourceShareInvitationsInput{
+			ResourceShareArns: []string{*shareARN},
+		}
+
+		listResp, err := rm.sdkapi.GetResourceShareInvitations(ctx, listInput)
+		rm.metrics.RecordAPICall("READ_MANY", "GetResourceShareInvitations", err)
+		if err != nil {
+			rlog.Info("Failed to find invitation, may already be cleaned up", "error", err)
+			return nil, nil
+		}
+
+		// Find the invitation (pending or accepted)
+		for _, inv := range listResp.ResourceShareInvitations {
+			if inv.Status == svcsdktypes.ResourceShareInvitationStatusPending ||
+				inv.Status == svcsdktypes.ResourceShareInvitationStatusAccepted {
+				invitationARN = inv.ResourceShareInvitationArn
+				invitationStatus = aws.String(string(inv.Status))
+				break
+			}
+		}
+
+		if invitationARN == nil {
+			rlog.Info("No invitation found, nothing to clean up")
+			return nil, nil
+		}
+	}
+
+	// Check the invitation status
+	if invitationStatus != nil && *invitationStatus == "ACCEPTED" {
+		// For accepted invitations, we need to disassociate ourselves as a principal
+		// This is what the AWS GUI "Leave" button does
+		rlog.Info("Leaving accepted resource share by disassociating principal",
+			"shareARN", *shareARN)
+
+		// Get our account ID
+		accountID := r.ko.Status.ReceiverAccountID
+		if accountID == nil || *accountID == "" {
+			rlog.Info("No receiver account ID in status, cannot disassociate")
+			return nil, ackerr.NewTerminalError(fmt.Errorf("receiver account ID not found in status"))
+		}
+
+		// Disassociate ourselves as a principal from the share
+		disassociateInput := &svcsdk.DisassociateResourceShareInput{
+			ResourceShareArn: shareARN,
+			Principals:       []string{*accountID},
+		}
+
+		_, err = rm.sdkapi.DisassociateResourceShare(ctx, disassociateInput)
+		rm.metrics.RecordAPICall("DELETE", "DisassociateResourceShare", err)
+		if err != nil {
+			// Check if this is an OperationNotPermittedException
+			// Some resource types (e.g., Network Firewall) don't support self-disassociation
+			// In this case, only the share owner can remove the principal
+			if strings.Contains(err.Error(), "OperationNotPermittedException") {
+				rlog.Info("Cannot leave resource share - resource type does not support self-disassociation. " +
+					"Only the share owner can remove you from this share. " +
+					"Treating as successful deletion to avoid resource getting stuck.",
+					"error", err)
+				// Return success to allow the Kubernetes resource to be deleted
+				// The AWS invitation will remain ACCEPTED until the owner removes the principal
+				return nil, nil
+			}
+
+			rlog.Info("Failed to disassociate from resource share", "error", err)
+			return nil, err
+		}
+
+		rlog.Info("Successfully left resource share")
+		return nil, nil
+	}
+
+	// Invitation is PENDING - we can reject it
+	rlog.Info("Rejecting pending resource share invitation", "invitationARN", *invitationARN)
+	rejectInput := &svcsdk.RejectResourceShareInvitationInput{
+		ResourceShareInvitationArn: invitationARN,
+	}
+
+	_, err = rm.sdkapi.RejectResourceShareInvitation(ctx, rejectInput)
+	rm.metrics.RecordAPICall("DELETE", "RejectResourceShareInvitation", err)
+	if err != nil {
+		rlog.Info("Failed to reject resource share invitation", "error", err)
+		return nil, err
+	}
+
+	rlog.Info("Successfully rejected resource share invitation")
+	return nil, nil
 }
 
 // newDeleteRequestPayload returns an SDK-specific struct for the HTTP request
@@ -567,4 +737,248 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	default:
 		return false
 	}
+}
+
+// sdkFindAcceptedInvitation finds an accepted invitation for the specified ShareARN
+// This is used when spec.acceptInvitation is set (Accept Mode)
+func (rm *resourceManager) sdkFindAcceptedInvitation(
+	ctx context.Context,
+	r *resource,
+) (latest *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkFindAcceptedInvitation")
+	defer func() {
+		exit(err)
+	}()
+
+	if r.ko.Spec.AcceptInvitation == nil || r.ko.Spec.AcceptInvitation.ShareARN == nil {
+		return nil, ackerr.NotFound
+	}
+
+	// Get the invitation for this share ARN
+	input := &svcsdk.GetResourceShareInvitationsInput{
+		ResourceShareArns: []string{*r.ko.Spec.AcceptInvitation.ShareARN},
+	}
+
+	var resp *svcsdk.GetResourceShareInvitationsOutput
+	resp, err = rm.sdkapi.GetResourceShareInvitations(ctx, input)
+	rm.metrics.RecordAPICall("READ_ONE", "GetResourceShareInvitations", err)
+	if err != nil {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) {
+			if awsErr.ErrorCode() == "ResourceShareInvitationArnNotFoundException" ||
+				awsErr.ErrorCode() == "UnknownResourceException" {
+				return nil, ackerr.NotFound
+			}
+		}
+		return nil, err
+	}
+
+	// Find the accepted invitation for this share
+	ko := r.ko.DeepCopy()
+	rm.setStatusDefaults(ko)
+	found := false
+	var acceptedInvitationARN *string
+
+	for _, invitation := range resp.ResourceShareInvitations {
+		// We're looking for an ACCEPTED invitation for this share
+		if invitation.Status == svcsdktypes.ResourceShareInvitationStatusAccepted {
+			found = true
+			acceptedInvitationARN = invitation.ResourceShareInvitationArn
+			rm.setResourceFromInvitation(ko, &invitation)
+			break
+		}
+	}
+
+	if !found {
+		return nil, ackerr.NotFound
+	}
+
+	// Populate resources associated with the invitation
+	// This uses the ListPendingInvitationResources API (non-deprecated)
+	if acceptedInvitationARN != nil {
+		_ = rm.populateInvitationResources(ctx, ko, acceptedInvitationARN)
+	}
+
+	return &resource{ko}, nil
+}
+
+// sdkAcceptInvitation accepts a pending resource share invitation
+// This is used when spec.acceptInvitation is set (Accept Mode)
+//
+// Accept Mode Overview:
+// ---------------------
+// In Accept Mode, the ResourceShare CRD is used to accept an incoming resource share
+// invitation from another AWS account (cross-account sharing). The workflow is:
+//
+// 1. Account A (sender) creates a resource share and shares it with Account B (receiver)
+// 2. AWS RAM sends an invitation to Account B
+// 3. Account B creates a ResourceShare with spec.acceptInvitation.shareARN set
+// 4. The controller accepts the invitation and populates status fields
+//
+// Deletion Behavior:
+// ------------------
+// When deleting a ResourceShare in Accept Mode:
+//   - PENDING invitations: Rejected using RejectResourceShareInvitation
+//   - ACCEPTED invitations: Left using DisassociateResourceShare (if supported)
+//
+// IMPORTANT: Some resource types (e.g., Network Firewall) do not support self-disassociation.
+// For these resources, the Kubernetes resource will be deleted successfully, but the AWS
+// invitation will remain ACCEPTED until the share owner removes the principal.
+// See sdkRejectOrLeaveShare() for detailed documentation on this limitation.
+func (rm *resourceManager) sdkAcceptInvitation(
+	ctx context.Context,
+	desired *resource,
+) (created *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkAcceptInvitation")
+	defer func() {
+		exit(err)
+	}()
+
+	if desired.ko.Spec.AcceptInvitation == nil || desired.ko.Spec.AcceptInvitation.ShareARN == nil {
+		return nil, fmt.Errorf("ShareARN is required in acceptInvitation")
+	}
+
+	// First, find the pending invitation for this share ARN
+	getInput := &svcsdk.GetResourceShareInvitationsInput{
+		ResourceShareArns: []string{*desired.ko.Spec.AcceptInvitation.ShareARN},
+	}
+
+	var getResp *svcsdk.GetResourceShareInvitationsOutput
+	getResp, err = rm.sdkapi.GetResourceShareInvitations(ctx, getInput)
+	rm.metrics.RecordAPICall("READ_ONE", "GetResourceShareInvitations", err)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find a pending invitation
+	var pendingInvitationARN *string
+	for _, invitation := range getResp.ResourceShareInvitations {
+		if invitation.Status == svcsdktypes.ResourceShareInvitationStatusPending {
+			pendingInvitationARN = invitation.ResourceShareInvitationArn
+			break
+		}
+	}
+
+	if pendingInvitationARN == nil {
+		return nil, ackerr.NewTerminalError(fmt.Errorf("no pending invitation found for share ARN %s. "+
+			"NOTE: If both AWS accounts are in the same AWS Organization and RAM Sharing with AWS Organizations is enabled, "+
+			"this resource is not necessary", *desired.ko.Spec.AcceptInvitation.ShareARN))
+	}
+
+	// Accept the invitation
+	acceptInput := &svcsdk.AcceptResourceShareInvitationInput{
+		ResourceShareInvitationArn: pendingInvitationARN,
+	}
+
+	var acceptResp *svcsdk.AcceptResourceShareInvitationOutput
+	acceptResp, err = rm.sdkapi.AcceptResourceShareInvitation(ctx, acceptInput)
+	rm.metrics.RecordAPICall("CREATE", "AcceptResourceShareInvitation", err)
+	if err != nil {
+		return nil, err
+	}
+
+	ko := desired.ko.DeepCopy()
+	rm.setStatusDefaults(ko)
+	rm.setResourceFromInvitation(ko, acceptResp.ResourceShareInvitation)
+
+	// Populate resources associated with the invitation
+	// This uses the ListPendingInvitationResources API (non-deprecated)
+	if acceptResp.ResourceShareInvitation != nil && acceptResp.ResourceShareInvitation.ResourceShareInvitationArn != nil {
+		_ = rm.populateInvitationResources(ctx, ko, acceptResp.ResourceShareInvitation.ResourceShareInvitationArn)
+	}
+
+	return &resource{ko}, nil
+}
+
+// setResourceFromInvitation populates the resource status from an invitation
+// This is used in Accept Mode to populate invitation-specific status fields
+func (rm *resourceManager) setResourceFromInvitation(
+	ko *svcapitypes.ResourceShare,
+	invitation *svcsdktypes.ResourceShareInvitation,
+) {
+	if invitation == nil {
+		return
+	}
+
+	// Set invitation-specific status fields
+	if invitation.ResourceShareInvitationArn != nil {
+		ko.Status.InvitationARN = invitation.ResourceShareInvitationArn
+	}
+	if invitation.Status != "" {
+		ko.Status.InvitationStatus = aws.String(string(invitation.Status))
+	}
+	if invitation.SenderAccountId != nil {
+		ko.Status.SenderAccountID = invitation.SenderAccountId
+	}
+	if invitation.ReceiverAccountId != nil {
+		ko.Status.ReceiverAccountID = invitation.ReceiverAccountId
+	}
+	if invitation.ResourceShareName != nil {
+		ko.Status.ShareName = invitation.ResourceShareName
+	}
+	if invitation.InvitationTimestamp != nil {
+		ko.Status.InvitationTime = &metav1.Time{*invitation.InvitationTimestamp}
+	}
+	if invitation.ResourceShareArn != nil {
+		arn := ackv1alpha1.AWSResourceName(*invitation.ResourceShareArn)
+		if ko.Status.ACKResourceMetadata == nil {
+			ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+		}
+		ko.Status.ACKResourceMetadata.ARN = &arn
+	}
+
+	// Set share status
+	if invitation.Status != "" {
+		ko.Status.ShareStatus = aws.String(string(invitation.Status))
+	}
+}
+
+// populateInvitationResources fetches and populates the resources associated with an invitation
+// Uses the ListPendingInvitationResources API (replaces deprecated ResourceShareAssociations field)
+func (rm *resourceManager) populateInvitationResources(
+	ctx context.Context,
+	ko *svcapitypes.ResourceShare,
+	invitationARN *string,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+
+	if invitationARN == nil {
+		return nil
+	}
+
+	rlog.Info("Fetching resources for invitation using ListPendingInvitationResources API",
+		"invitationARN", *invitationARN)
+
+	// List resources associated with the pending invitation
+	input := &svcsdk.ListPendingInvitationResourcesInput{
+		ResourceShareInvitationArn: invitationARN,
+	}
+
+	resp, err := rm.sdkapi.ListPendingInvitationResources(ctx, input)
+	rm.metrics.RecordAPICall("READ", "ListPendingInvitationResources", err)
+	if err != nil {
+		// Don't fail the whole operation if we can't list resources
+		// Just log and continue
+		rlog.Info("Failed to list pending invitation resources (non-fatal)", "error", err)
+		return nil
+	}
+
+	if resp.Resources != nil && len(resp.Resources) > 0 {
+		resources := make([]*string, 0, len(resp.Resources))
+		for _, resource := range resp.Resources {
+			if resource.Arn != nil {
+				resources = append(resources, resource.Arn)
+			}
+		}
+		if len(resources) > 0 {
+			ko.Status.Resources = resources
+			rlog.Info("Populated resources from invitation", "resourceCount", len(resources))
+		}
+	} else {
+		rlog.Info("No resources found in invitation")
+	}
+
+	return nil
 }
