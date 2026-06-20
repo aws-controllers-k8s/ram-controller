@@ -73,6 +73,15 @@ spec:
                 description: |-
                   The Amazon Resource Name (ARN) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
                   of the invitation that you want to accept.
+
+                  WARNING: Deleting this resource is destructive. Because there is no
+                  API to "un-accept" a resource share invitation, deleting the
+                  ResourceShareInvitation custom resource calls DisassociateResourceShare
+                  on the underlying resource share. This removes the receiver account
+                  from the share and revokes its access to every resource that the share
+                  grants. The invitation is not merely forgotten by the controller; the
+                  account is actively detached from the shared resources. Only delete this
+                  resource if you intend to give up access to the shared resources.
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable once set
