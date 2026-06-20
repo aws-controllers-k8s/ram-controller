@@ -90,18 +90,18 @@ func (r *resource) SetIdentifiers(identifier *ackv1alpha1.AWSIdentifiers) error 
 	if identifier.NameOrID == "" {
 		return ackerrors.MissingNameIdentifier
 	}
-	r.ko.Spec.ResourceShareInvitationARN = &identifier.NameOrID
+	r.ko.Status.ResourceShareARN = &identifier.NameOrID
 
 	return nil
 }
 
 // PopulateResourceFromAnnotation populates the fields passed from adoption annotation
 func (r *resource) PopulateResourceFromAnnotation(fields map[string]string) error {
-	primaryKey, ok := fields["resourceShareInvitationARN"]
+	primaryKey, ok := fields["resourceShareARN"]
 	if !ok {
-		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: resourceShareInvitationARN"))
+		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: resourceShareARN"))
 	}
-	r.ko.Spec.ResourceShareInvitationARN = &primaryKey
+	r.ko.Status.ResourceShareARN = &primaryKey
 
 	return nil
 }

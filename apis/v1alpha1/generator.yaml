@@ -31,7 +31,6 @@ resources:
           code: ResourceShareInvitationArnNotFoundException
     fields:
       ResourceShareInvitationArn:
-        is_primary_key: true
         is_immutable: true
         is_required: true
         print:
@@ -42,6 +41,7 @@ resources:
           name: STATUS
       ResourceShareArn:
         is_read_only: true
+        is_primary_key: true
         print:
           name: SHARE-ARN
     synced:
