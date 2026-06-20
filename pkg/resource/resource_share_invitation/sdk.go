@@ -182,6 +182,14 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	// A PENDING invitation has not yet been accepted by this account, so from
+	// ACK's perspective the resource does not exist. Returning NotFound here
+	// causes the runtime to invoke sdkCreate, which maps to
+	// AcceptResourceShareInvitation.
+	if ko.Status.Status != nil && *ko.Status.Status == "PENDING" {
+		return nil, ackerr.NotFound
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -219,6 +227,12 @@ func (rm *resourceManager) sdkCreate(
 	input, err := rm.newCreateRequestPayload(ctx, desired)
 	if err != nil {
 		return nil, err
+	}
+	// The invitation ARN is supplied in the Spec by the user. Because the field
+	// is marked is_primary_key, the generator otherwise reads it from
+	// Status.ACKResourceMetadata.ARN, which is not yet populated on first Create.
+	if desired.ko.Spec.ResourceShareInvitationARN != nil {
+		input.ResourceShareInvitationArn = desired.ko.Spec.ResourceShareInvitationARN
 	}
 
 	var resp *svcsdk.AcceptResourceShareInvitationOutput
