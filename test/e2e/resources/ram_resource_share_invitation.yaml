@@ -1,0 +1,6 @@
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: ResourceShareInvitation
+metadata:
+  name: $RESOURCE_SHARE_INVITATION_NAME
+spec:
+  resourceShareInvitationARN: $INVITATION_ARN

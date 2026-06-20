@@ -73,6 +73,7 @@ rules:
   - ram.services.k8s.aws
   resources:
   - permissions
+  - resourceshareinvitations
   - resourceshares
   verbs:
   - create
@@ -86,6 +87,7 @@ rules:
   - ram.services.k8s.aws
   resources:
   - permissions/status
+  - resourceshareinvitations/status
   - resourceshares/status
   verbs:
   - get

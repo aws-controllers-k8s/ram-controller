@@ -6,7 +6,56 @@ ignore:
       - CreatePermissionOutput.ClientToken
   resource_names:
       - PermissionVersion
+operations:
+  AcceptResourceShareInvitation:
+    operation_type: Create
+    resource_name: ResourceShareInvitation
+    output_wrapper_field_path: ResourceShareInvitation
+  GetResourceShareInvitations:
+    operation_type: Read_Many
+    resource_name: ResourceShareInvitation
+    output_wrapper_field_path: ResourceShareInvitations
+  DisassociateResourceShare:
+    operation_type: Delete
+    resource_name: ResourceShareInvitation
 resources:
+  ResourceShareInvitation:
+    exceptions:
+      terminal_codes:
+        - MalformedArnException
+        - ResourceShareInvitationAlreadyAcceptedException
+        - ResourceShareInvitationAlreadyRejectedException
+        - ResourceShareInvitationExpiredException
+      errors:
+        404:
+          code: ResourceShareInvitationArnNotFoundException
+    fields:
+      ResourceShareInvitationArn:
+        is_primary_key: true
+        is_immutable: true
+        is_required: true
+        print:
+          name: INVITATION-ARN
+      Status:
+        is_read_only: true
+        print:
+          name: STATUS
+      ResourceShareArn:
+        is_read_only: true
+        print:
+          name: SHARE-ARN
+    synced:
+      when:
+        - path: Status.Status
+          in:
+            - ACCEPTED
+    tags:
+      ignore: true
+    hooks:
+      sdk_read_many_post_build_request:
+        template_path: hooks/resource_share_invitation/sdk_read_many_post_build_request.go.tpl
+      sdk_delete_post_build_request:
+        template_path: hooks/resource_share_invitation/sdk_delete_post_build_request.go.tpl
   ResourceShare:
     exceptions:
       terminal_codes:

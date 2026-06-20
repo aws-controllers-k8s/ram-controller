@@ -4,31 +4,30 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: resourceshareaccepters.ram.services.k8s.aws
+  name: resourceshareinvitations.ram.services.k8s.aws
 spec:
   group: ram.services.k8s.aws
   names:
-    kind: ResourceShareAccepter
-    listKind: ResourceShareAccepterList
-    plural: resourceshareaccepters
-    singular: resourceshareaccepter
+    kind: ResourceShareInvitation
+    listKind: ResourceShareInvitationList
+    plural: resourceshareinvitations
+    singular: resourceshareinvitation
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.shareARN
+    - jsonPath: .spec.resourceShareInvitationARN
+      name: INVITATION-ARN
+      type: string
+    - jsonPath: .status.resourceShareARN
       name: SHARE-ARN
       type: string
-    - jsonPath: .status.invitationStatus
+    - jsonPath: .status.status
       name: STATUS
-      type: string
-    - jsonPath: .status.senderAccountID
-      name: SENDER
-      priority: 1
       type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ResourceShareAccepter is the Schema for the ResourceShareAccepters
+        description: ResourceShareInvitation is the Schema for the ResourceShareInvitations
           API
         properties:
           apiVersion:
@@ -50,24 +49,40 @@ spec:
             type: object
           spec:
             description: |-
-              ResourceShareAccepterSpec defines the desired state of ResourceShareAccepter.
+              ResourceShareInvitationSpec defines the desired state of ResourceShareInvitation.
 
-              This resource accepts a RAM resource share invitation. When you create this
-              resource, the controller finds the pending invitation for the specified ShareARN
-              and accepts it. When you delete this resource, the controller disassociates
-              from the resource share (leaves the share).
+              Describes an invitation for an Amazon Web Services account to join a resource
+              share.
             properties:
-              shareARN:
+              clientToken:
                 description: |-
-                  The Amazon Resource Name (ARN) of the resource share to accept.
-                  This is immutable - you cannot change which share you're accepting after creation.
+                  Specifies a unique, case-sensitive identifier that you provide to ensure
+                  the idempotency of the request. This lets you safely retry the request without
+                  accidentally performing the same operation a second time. Passing the same
+                  value to a later call to an operation requires that you also pass the same
+                  value for all other parameters. We recommend that you use a UUID type of
+                  value. (https://wikipedia.org/wiki/Universally_unique_identifier).
+
+                  If you don't provide this value, then Amazon Web Services generates a random
+                  one for you.
+
+                  If you retry the operation with the same ClientToken, but with different
+                  parameters, the retry fails with an IdempotentParameterMismatch error.
                 type: string
+              resourceShareInvitationARN:
+                description: |-
+                  The Amazon Resource Name (ARN) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+                  of the invitation that you want to accept.
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable once set
+                  rule: self == oldSelf
             required:
-            - shareARN
+            - resourceShareInvitationARN
             type: object
           status:
-            description: ResourceShareAccepterStatus defines the observed state of
-              ResourceShareAccepter
+            description: ResourceShareInvitationStatus defines the observed state
+              of ResourceShareInvitation
             properties:
               ackResourceMetadata:
                 description: |-
@@ -89,6 +104,10 @@ spec:
                     description: |-
                       OwnerAccountID is the AWS Account ID of the account that owns the
                       backend AWS service API resource.
+                    type: string
+                  partition:
+                    description: Partition is the AWS partition in which the resource
+                      exists or will exist
                     type: string
                   region:
                     description: Region is the AWS region in which the resource exists
@@ -133,34 +152,64 @@ spec:
                   - type
                   type: object
                 type: array
-              invitationARN:
-                description: The ARN of the invitation that was accepted.
-                type: string
-              invitationStatus:
-                description: |-
-                  The current status of the invitation.
-                  Possible values: PENDING, ACCEPTED, REJECTED, EXPIRED
-                type: string
-              invitationTime:
+              invitationTimestamp:
                 description: The date and time when the invitation was sent.
                 format: date-time
                 type: string
+              receiverARN:
+                description: |-
+                  The Amazon Resource Name (ARN) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+                  of the IAM user or role that received the invitation.
+                type: string
               receiverAccountID:
-                description: The ID of the AWS account that received the invitation.
+                description: The ID of the Amazon Web Services account that received
+                  the invitation.
                 type: string
-              resources:
-                description: The resources included in the resource share.
+              resourceShareARN:
+                description: |-
+                  The Amazon Resource Name (ARN) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+                  of the resource share
+                type: string
+              resourceShareAssociations:
+                description: |-
+                  To view the resources associated with a pending resource share invitation,
+                  use ListPendingInvitationResources.
                 items:
-                  type: string
+                  description: |-
+                    Describes an association between a resource share and either a principal
+                    or a resource.
+                  properties:
+                    associatedEntity:
+                      type: string
+                    associationType:
+                      type: string
+                    creationTime:
+                      format: date-time
+                      type: string
+                    external:
+                      type: boolean
+                    lastUpdatedTime:
+                      format: date-time
+                      type: string
+                    resourceShareARN:
+                      type: string
+                    resourceShareName:
+                      type: string
+                    status:
+                      type: string
+                    statusMessage:
+                      type: string
+                  type: object
                 type: array
-              senderAccountID:
-                description: The ID of the AWS account that sent the invitation.
-                type: string
-              shareName:
+              resourceShareName:
                 description: The name of the resource share.
                 type: string
-              shareStatus:
-                description: The current status of the resource share.
+              senderAccountID:
+                description: The ID of the Amazon Web Services account that sent the
+                  invitation.
+                type: string
+              status:
+                description: The current status of the invitation.
                 type: string
             type: object
         type: object

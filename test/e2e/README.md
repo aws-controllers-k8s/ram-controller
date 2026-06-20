@@ -51,8 +51,8 @@ pytest tests/ -v
 # Run only ResourceShare tests
 pytest tests/test_resource_share.py -v
 
-# Run only ResourceShareAccepter tests
-pytest tests/test_resource_share_accepter.py -v
+# Run only ResourceShareInvitation tests
+pytest tests/test_resource_share_invitation.py -v
 
 # Run only Permission tests
 pytest tests/test_permission.py -v
@@ -65,35 +65,36 @@ pytest -m canary -v
 
 - `tests/` - Test files
   - `test_resource_share.py` - ResourceShare CRUD tests
-  - `test_resource_share_accepter.py` - ResourceShareAccepter tests
+  - `test_resource_share_invitation.py` - ResourceShareInvitation tests
   - `test_permission.py` - Permission tests
 
 - `resources/` - YAML templates for test resources
   - `ram_resource_share.yaml`
-  - `ram_resource_share_accepter.yaml`
+  - `ram_resource_share_invitation.yaml`
   - `ram_permission.yaml`
 
 - Helper modules:
   - `ram_resource_share.py` - ResourceShare utilities
-  - `ram_resource_share_accepter.py` - ResourceShareAccepter utilities
+  - `ram_resource_share_invitation.py` - ResourceShareInvitation utilities
   - `ram_permission.py` - Permission utilities
 
-## ResourceShareAccepter Tests
+## ResourceShareInvitation Tests
 
-The `test_resource_share_accepter.py` tests validate the ResourceShareAccepter CRD.
+The `test_resource_share_invitation.py` tests validate the ResourceShareInvitation CRD.
 
 ### Current Tests
 
-- **test_no_pending_invitation**: Tests error handling when no pending invitation exists
+- **test_malformed_arn_terminal**: Tests terminal error handling when the invitation ARN is malformed
 
 ### Future Tests (Require Cross-Account Setup)
 
 To test actual invitation acceptance, you need:
 1. Two AWS accounts (sender and receiver)
 2. Sender account creates a ResourceShare
-3. Receiver account uses ResourceShareAccepter to accept
+3. Receiver account looks up the invitation ARN and creates a
+   ResourceShareInvitation CR referencing it
 
-See comments in `test_resource_share_accepter.py` for implementation guidance.
+See comments in `test_resource_share_invitation.py` for implementation guidance.
 
 ## Troubleshooting
 

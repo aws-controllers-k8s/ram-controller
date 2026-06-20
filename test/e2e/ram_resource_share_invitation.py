@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-"""Utilities for working with RAM ResourceShareAccepter resources"""
+"""Utilities for working with RAM ResourceShareInvitation resources"""
 
 import datetime
 import time
@@ -34,7 +34,6 @@ def get_resource_share_invitation(share_arn: str):
             resourceShareArns=[share_arn]
         )
         invitations = resp.get('resourceShareInvitations', [])
-        # Return the first pending invitation for this share
         for invitation in invitations:
             if invitation.get('status') == 'PENDING':
                 return invitation
@@ -51,7 +50,7 @@ def wait_until_invitation_accepted(
     """Waits until a ResourceShareInvitation for the supplied share ARN is ACCEPTED.
 
     Usage:
-        from e2e.ram_resource_share_accepter import wait_until_invitation_accepted
+        from e2e.ram_resource_share_invitation import wait_until_invitation_accepted
 
         wait_until_invitation_accepted(share_arn)
 
@@ -71,4 +70,3 @@ def wait_until_invitation_accepted(
         invitation = get_resource_share_invitation(share_arn)
         if invitation and invitation.get('status') == 'ACCEPTED':
             break
-

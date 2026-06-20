@@ -18,6 +18,7 @@ rules:
   resources:
   - permissions
   - resourceshares
+  - resourceshareinvitations
   verbs:
   - get
   - list

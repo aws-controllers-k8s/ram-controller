@@ -3,5 +3,5 @@ kind: Kustomization
 resources:
   - common
   - bases/ram.services.k8s.aws_permissions.yaml
-  - bases/ram.services.k8s.aws_resourceshareaccepters.yaml
   - bases/ram.services.k8s.aws_resourceshares.yaml
+  - bases/ram.services.k8s.aws_resourceshareinvitations.yaml
