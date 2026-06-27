@@ -78,24 +78,28 @@ type Resource struct {
 // or a resource.
 type ResourceShareAssociation struct {
 	AssociatedEntity  *string      `json:"associatedEntity,omitempty"`
+	AssociationType   *string      `json:"associationType,omitempty"`
 	CreationTime      *metav1.Time `json:"creationTime,omitempty"`
 	External          *bool        `json:"external,omitempty"`
 	LastUpdatedTime   *metav1.Time `json:"lastUpdatedTime,omitempty"`
 	ResourceShareARN  *string      `json:"resourceShareARN,omitempty"`
 	ResourceShareName *string      `json:"resourceShareName,omitempty"`
+	Status            *string      `json:"status,omitempty"`
 	StatusMessage     *string      `json:"statusMessage,omitempty"`
 }
 
 // Describes an invitation for an Amazon Web Services account to join a resource
 // share.
-type ResourceShareInvitation struct {
-	InvitationTimestamp        *metav1.Time `json:"invitationTimestamp,omitempty"`
-	ReceiverAccountID          *string      `json:"receiverAccountID,omitempty"`
-	ReceiverARN                *string      `json:"receiverARN,omitempty"`
-	ResourceShareARN           *string      `json:"resourceShareARN,omitempty"`
-	ResourceShareInvitationARN *string      `json:"resourceShareInvitationARN,omitempty"`
-	ResourceShareName          *string      `json:"resourceShareName,omitempty"`
-	SenderAccountID            *string      `json:"senderAccountID,omitempty"`
+type ResourceShareInvitation_SDK struct {
+	InvitationTimestamp        *metav1.Time                `json:"invitationTimestamp,omitempty"`
+	ReceiverAccountID          *string                     `json:"receiverAccountID,omitempty"`
+	ReceiverARN                *string                     `json:"receiverARN,omitempty"`
+	ResourceShareARN           *string                     `json:"resourceShareARN,omitempty"`
+	ResourceShareAssociations  []*ResourceShareAssociation `json:"resourceShareAssociations,omitempty"`
+	ResourceShareInvitationARN *string                     `json:"resourceShareInvitationARN,omitempty"`
+	ResourceShareName          *string                     `json:"resourceShareName,omitempty"`
+	SenderAccountID            *string                     `json:"senderAccountID,omitempty"`
+	Status                     *string                     `json:"status,omitempty"`
 }
 
 // Information about a RAM managed permission.

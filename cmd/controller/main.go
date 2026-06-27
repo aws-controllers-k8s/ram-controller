@@ -41,6 +41,7 @@ import (
 
 	_ "github.com/aws-controllers-k8s/ram-controller/pkg/resource/permission"
 	_ "github.com/aws-controllers-k8s/ram-controller/pkg/resource/resource_share"
+	_ "github.com/aws-controllers-k8s/ram-controller/pkg/resource/resource_share_invitation"
 
 	"github.com/aws-controllers-k8s/ram-controller/pkg/version"
 )

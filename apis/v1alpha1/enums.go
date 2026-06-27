@@ -102,13 +102,13 @@ const (
 	ResourceShareFeatureSet_STANDARD              ResourceShareFeatureSet = "STANDARD"
 )
 
-type ResourceShareInvitationStatus string
+type ResourceShareInvitationStatus_SDK string
 
 const (
-	ResourceShareInvitationStatus_ACCEPTED ResourceShareInvitationStatus = "ACCEPTED"
-	ResourceShareInvitationStatus_EXPIRED  ResourceShareInvitationStatus = "EXPIRED"
-	ResourceShareInvitationStatus_PENDING  ResourceShareInvitationStatus = "PENDING"
-	ResourceShareInvitationStatus_REJECTED ResourceShareInvitationStatus = "REJECTED"
+	ResourceShareInvitationStatus_SDK_ACCEPTED ResourceShareInvitationStatus_SDK = "ACCEPTED"
+	ResourceShareInvitationStatus_SDK_EXPIRED  ResourceShareInvitationStatus_SDK = "EXPIRED"
+	ResourceShareInvitationStatus_SDK_PENDING  ResourceShareInvitationStatus_SDK = "PENDING"
+	ResourceShareInvitationStatus_SDK_REJECTED ResourceShareInvitationStatus_SDK = "REJECTED"
 )
 
 type ResourceShareStatus_SDK string

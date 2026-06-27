@@ -1,0 +1,13 @@
+resources:
+  ResourceShareInvitation:
+    fields:
+      ResourceShareInvitationARN:
+        append: |
+          WARNING: Deleting this resource is destructive. Because there is no
+          API to "un-accept" a resource share invitation, deleting the
+          ResourceShareInvitation custom resource calls DisassociateResourceShare
+          on the underlying resource share. This removes the receiver account
+          from the share and revokes its access to every resource that the share
+          grants. The invitation is not merely forgotten by the controller; the
+          account is actively detached from the shared resources. Only delete this
+          resource if you intend to give up access to the shared resources.
