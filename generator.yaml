@@ -4,10 +4,12 @@ ignore:
       - CreateResourceShareOutput.ClientToken
       - CreatePermissionInput.ClientToken
       - CreatePermissionOutput.ClientToken
+      - GetResourceSharesInput.Name
   resource_names:
       - PermissionVersion
 resources:
   ResourceShare:
+    is_arn_primary_key: true
     exceptions:
       terminal_codes:
         - MalformedArnException
@@ -30,6 +32,8 @@ resources:
         code: compareTags(delta, a, b)
       sdk_update_pre_build_request:
         template_path: hooks/resource_share/sdk_update_pre_build_request.go.tpl
+      sdk_read_many_pre_build_request:
+        template_path: hooks/resource_share/sdk_read_many_pre_build_request.go.tpl
       sdk_read_many_post_build_request:
         template_path: hooks/resource_share/sdk_find_read_many_post_build_request.go.tpl
       sdk_read_many_post_set_output:
