@@ -63,6 +63,9 @@ func (rm *resourceManager) sdkFind(
 	defer func() {
 		exit(err)
 	}()
+	if r.ko.Status.ACKResourceMetadata == nil || r.ko.Status.ACKResourceMetadata.ARN == nil {
+		return nil, ackerr.NotFound
+	}
 	// If any required fields in the input shape are missing, AWS resource is
 	// not created yet. Return NotFound here to indicate to callers that the
 	// resource isn't yet created.
@@ -79,6 +82,10 @@ func (rm *resourceManager) sdkFind(
 	input.ResourceOwner = svcsdktypes.ResourceOwnerSelf
 	if r.ko.Status.OwningAccountID != nil && *r.ko.Status.OwningAccountID != string(rm.awsAccountID) {
 		input.ResourceOwner = svcsdktypes.ResourceOwnerOtherAccounts
+	}
+	// only gets the ResourceShare identified by this ARN
+	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
+		input.ResourceShareArns = []string{string(*r.ko.Status.ACKResourceMetadata.ARN)}
 	}
 	var resp *svcsdk.GetResourceSharesOutput
 	resp, err = rm.sdkapi.GetResourceShares(ctx, input)
@@ -185,8 +192,7 @@ func (rm *resourceManager) sdkFind(
 func (rm *resourceManager) requiredFieldsMissingFromReadManyInput(
 	r *resource,
 ) bool {
-	return r.ko.Spec.Name == nil
-
+	return false
 }
 
 // newListRequestPayload returns SDK-specific struct for the HTTP request
@@ -195,10 +201,6 @@ func (rm *resourceManager) newListRequestPayload(
 	r *resource,
 ) (*svcsdk.GetResourceSharesInput, error) {
 	res := &svcsdk.GetResourceSharesInput{}
-
-	if r.ko.Spec.Name != nil {
-		res.Name = r.ko.Spec.Name
-	}
 
 	return res, nil
 }
