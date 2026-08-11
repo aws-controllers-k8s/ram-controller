@@ -34,6 +34,8 @@ CREATE_WAIT_AFTER_SECONDS = 5
 MODIFY_WAIT_AFTER_SECONDS = 20
 DELETE_WAIT_AFTER_SECONDS = 20
 
+DEFAULT_SUBNET_PERMISSION_ARN = "arn:aws:ram::aws:permission/AWSRAMDefaultPermissionSubnet"
+
 
 @pytest.fixture(scope="module")
 def resource_share():
@@ -94,9 +96,80 @@ def resource_share_association():
 
     yield cr, ref
 
+@pytest.fixture(scope="module")
+def resource_share_default_permission():
+    resource_name = random_suffix_name("resource-share", 24)
+
+    subnet = get_bootstrap_resources().RamVPC.public_subnets
+    subnet_arn = f"arn:aws:ec2:{subnet.region}:{subnet.account_id}:subnet/{subnet.subnet_ids[0]}"
+
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["RESOURCE_SHARE_NAME"] = resource_name
+    replacements["RESOURCE_ARN"] = subnet_arn
+
+    resource_data = load_ram_resource(
+        "ram_resource_share_default_permission",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resource_name, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    ram_resource_share.wait_until_exists(resource_name)
+
+    yield cr, ref
+
+
 @service_marker
 @pytest.mark.canary
 class TestResourceShare:
+    def test_default_permission_left_associated(self, resource_share_default_permission):
+        res, ref = resource_share_default_permission
+
+        time.sleep(CREATE_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        assert cr is not None
+        assert 'permissionARNs' not in cr['spec']
+
+        resource_share_arn = cr['status']['ackResourceMetadata']['arn']
+
+        associated_permissions = ram_resource_share.list_associated_permissions(arn=resource_share_arn)
+        assert len(associated_permissions) == 1
+        assert associated_permissions[0]['arn'] == DEFAULT_SUBNET_PERMISSION_ARN
+
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+
+        updates = {
+            "spec": {
+                "tags": [
+                    {
+                        "key": "someKey",
+                        "value": "someValue",
+                    }
+                ]
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+
+        associated_permissions = ram_resource_share.list_associated_permissions(arn=resource_share_arn)
+        assert len(associated_permissions) == 1
+        assert associated_permissions[0]['arn'] == DEFAULT_SUBNET_PERMISSION_ARN
+
+        _, deleted = k8s.delete_custom_resource(
+            ref,
+            period_length=DELETE_WAIT_AFTER_SECONDS,
+        )
+        assert deleted
+
     def test_crud(self, resource_share):
         res, ref = resource_share
 

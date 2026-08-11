@@ -362,14 +362,17 @@ func (rm *resourceManager) sdkUpdate(
 		}
 	}
 
-	if delta.DifferentAt("Spec.PermissionARNs") {
-		if err := rm.syncPermissions(ctx, desired, latest); err != nil {
+	// Resource associations sync first so that dropping a permission and the
+	// resources it covers in the same edit works: RAM refuses to disassociate
+	// the last permission covering a resource type still in the share.
+	if delta.DifferentAt("Spec.ResourceARNs") || delta.DifferentAt("Spec.Principals") || delta.DifferentAt("Spec.Sources") {
+		if err := rm.syncResourceShareResources(ctx, desired, latest); err != nil {
 			return nil, err
 		}
 	}
 
-	if delta.DifferentAt("Spec.ResourceARNs") || delta.DifferentAt("Spec.Principals") || delta.DifferentAt("Spec.Sources") {
-		if err := rm.syncResourceShareResources(ctx, desired, latest); err != nil {
+	if delta.DifferentAt("Spec.PermissionARNs") {
+		if err := rm.syncPermissions(ctx, desired, latest); err != nil {
 			return nil, err
 		}
 	}
@@ -566,7 +569,13 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 		return false
 	}
 	switch terminalErr.ErrorCode() {
-	case "MalformedArnException":
+	case "MalformedArnException",
+		"MalformedPolicyTemplateException",
+		"InvalidResourceTypeException",
+		"InvalidPolicyException",
+		"UnmatchedPolicyPermissionException",
+		"MissingRequiredParameterException",
+		"InvalidParameterException":
 		return true
 	default:
 		return false

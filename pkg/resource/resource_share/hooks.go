@@ -15,8 +15,12 @@ package resource_share
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
+	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/ram"
@@ -98,6 +102,16 @@ func (rm *resourceManager) sdkTags(
 	return sdktags
 }
 
+// customPreCompare compares the fields excluded via `compare.is_ignored`.
+func customPreCompare(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	compareTags(delta, a, b)
+	comparePermissionARNs(delta, a, b)
+}
+
 // compareTags is a custom comparison function for comparing lists of Tag
 // structs where the order of the structs in the list is not important.
 func compareTags(
@@ -122,6 +136,108 @@ func compareTags(
 	}
 }
 
+// e.g. arn:aws:ram::aws:permission/AWSRAMDefaultPermissionPrefixList
+const awsDefaultPermissionARNFragment = ":ram::aws:permission/AWSRAMDefaultPermission"
+
+func isDefaultPermissionARN(arn string) bool {
+	return strings.Contains(arn, awsDefaultPermissionARNFragment)
+}
+
+// excludeUndeclaredDefaultPermissions drops the default permissions RAM
+// attached on its own, which are AWS-owned state rather than drift.
+func excludeUndeclaredDefaultPermissions(
+	declared []*string,
+	observed []*string,
+) []*string {
+	declaredARNs := make(map[string]struct{}, len(declared))
+	for _, arn := range declared {
+		if arn != nil {
+			declaredARNs[*arn] = struct{}{}
+		}
+	}
+
+	kept := make([]*string, 0, len(observed))
+	for _, arn := range observed {
+		if arn == nil {
+			continue
+		}
+		if _, ok := declaredARNs[*arn]; !ok && isDefaultPermissionARN(*arn) {
+			continue
+		}
+		kept = append(kept, arn)
+	}
+
+	return kept
+}
+
+func comparePermissionARNs(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	desired := aws.ToStringSlice(a.ko.Spec.PermissionARNs)
+	latest := aws.ToStringSlice(
+		excludeUndeclaredDefaultPermissions(a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs),
+	)
+
+	if !ackcompare.SliceStringEqual(desired, latest) {
+		delta.Add("Spec.PermissionARNs", a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs)
+	}
+}
+
+type resolvedPermission struct {
+	arn          string
+	resourceType string
+}
+
+func checkDuplicatePermissionTypes(resolved []resolvedPermission) error {
+	byType := make(map[string]string, len(resolved))
+	for _, r := range resolved {
+		if existing, ok := byType[r.resourceType]; ok && existing != r.arn {
+			return ackerr.NewTerminalError(fmt.Errorf(
+				"spec.permissionARNs declares more than one permission for resource type %s: %s and %s. RAM allows one permission per resource type",
+				r.resourceType, existing, r.arn,
+			))
+		}
+		byType[r.resourceType] = r.arn
+	}
+	return nil
+}
+
+func (rm *resourceManager) validateDeclaredPermissions(
+	ctx context.Context,
+	declared []*string,
+) error {
+	resolved := make([]resolvedPermission, 0, len(declared))
+
+	for _, arn := range declared {
+		if arn == nil {
+			continue
+		}
+		resp, err := rm.sdkapi.GetPermission(
+			ctx,
+			&svcsdk.GetPermissionInput{PermissionArn: arn},
+		)
+		rm.metrics.RecordAPICall("READ_ONE", "GetPermission", err)
+		if err != nil {
+			var notFound *svcsdktypes.UnknownResourceException
+			if errors.As(err, &notFound) {
+				continue
+			}
+			return err
+		}
+		if resp.Permission == nil || resp.Permission.ResourceType == nil {
+			continue
+		}
+		resolved = append(resolved, resolvedPermission{
+			arn:          *arn,
+			resourceType: *resp.Permission.ResourceType,
+		})
+	}
+
+	return checkDuplicatePermissionTypes(resolved)
+}
+
 func (rm *resourceManager) syncPermissions(
 	ctx context.Context,
 	desired *resource,
@@ -136,7 +252,11 @@ func (rm *resourceManager) syncPermissions(
 	resourceArn := latest.ko.Status.ACKResourceMetadata.ARN
 
 	desiredPermissions := desired.ko.Spec.PermissionARNs
-	latestPermissions := latest.ko.Spec.PermissionARNs
+	if err = rm.validateDeclaredPermissions(ctx, desiredPermissions); err != nil {
+		return err
+	}
+
+	latestPermissions := excludeUndeclaredDefaultPermissions(desiredPermissions, latest.ko.Spec.PermissionARNs)
 
 	toAdd, toDelete := compareStringSlices(desiredPermissions, latestPermissions)
 
@@ -165,6 +285,7 @@ func (rm *resourceManager) syncPermissions(
 				&svcsdk.AssociateResourceSharePermissionInput{
 					ResourceShareArn: (*string)(resourceArn),
 					PermissionArn:    &permission,
+					Replace:          aws.Bool(true),
 				},
 			)
 			rm.metrics.RecordAPICall("UPDATE", "AssociateResourceSharePermission", err)
@@ -200,7 +321,7 @@ func compareStringSlices(a, b []*string) ([]string, []string) {
 
 	for _, v := range a {
 		if _, ok := bm[*v]; !ok {
-			toAdd = append(toDelete, *v)
+			toAdd = append(toAdd, *v)
 		}
 	}
 

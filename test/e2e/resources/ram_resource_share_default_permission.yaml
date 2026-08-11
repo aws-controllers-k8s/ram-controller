@@ -1,0 +1,8 @@
+apiVersion: ram.services.k8s.aws/v1alpha1
+kind: ResourceShare
+metadata:
+  name: $RESOURCE_SHARE_NAME
+spec:
+  name: $RESOURCE_SHARE_NAME
+  resourceARNs:
+  - $RESOURCE_ARN

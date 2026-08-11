@@ -41,7 +41,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
-	compareTags(delta, a, b)
+	customPreCompare(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.AllowExternalPrincipals, b.ko.Spec.AllowExternalPrincipals) {
 		delta.Add("Spec.AllowExternalPrincipals", a.ko.Spec.AllowExternalPrincipals, b.ko.Spec.AllowExternalPrincipals)
@@ -55,13 +55,6 @@ func newResourceDelta(
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
-		}
-	}
-	if len(a.ko.Spec.PermissionARNs) != len(b.ko.Spec.PermissionARNs) {
-		delta.Add("Spec.PermissionARNs", a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs)
-	} else if len(a.ko.Spec.PermissionARNs) > 0 {
-		if !ackcompare.SliceStringPEqual(a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs) {
-			delta.Add("Spec.PermissionARNs", a.ko.Spec.PermissionARNs, b.ko.Spec.PermissionARNs)
 		}
 	}
 	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.PermissionRefs, b.ko.Spec.PermissionRefs) {
