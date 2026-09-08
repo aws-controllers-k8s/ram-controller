@@ -137,3 +137,68 @@ def list_associated_resources(arn):
             return resp['resourceShareAssociations'][0]
     except c.UnknownResourceException:
         return None
+
+
+def get_resource_share_invitations(share_arn=None):
+    """Returns resource share invitations.
+
+    Args:
+        share_arn: Optional ShareARN to filter invitations
+
+    Returns:
+        List of invitations, or None if error
+    """
+    c = boto3.client('ram')
+    try:
+        params = {}
+        if share_arn:
+            params['resourceShareArns'] = [share_arn]
+
+        resp = c.get_resource_share_invitations(**params)
+        if 'resourceShareInvitations' in resp:
+            return resp['resourceShareInvitations']
+        return []
+    except Exception as e:
+        return None
+
+
+def accept_resource_share_invitation(invitation_arn):
+    """Accepts a resource share invitation.
+
+    Args:
+        invitation_arn: ARN of the invitation to accept
+
+    Returns:
+        The accepted invitation details, or None if error
+    """
+    c = boto3.client('ram')
+    try:
+        resp = c.accept_resource_share_invitation(
+            resourceShareInvitationArn=invitation_arn
+        )
+        if 'resourceShareInvitation' in resp:
+            return resp['resourceShareInvitation']
+        return None
+    except Exception as e:
+        return None
+
+
+def reject_resource_share_invitation(invitation_arn):
+    """Rejects a resource share invitation.
+
+    Args:
+        invitation_arn: ARN of the invitation to reject
+
+    Returns:
+        The rejected invitation details, or None if error
+    """
+    c = boto3.client('ram')
+    try:
+        resp = c.reject_resource_share_invitation(
+            resourceShareInvitationArn=invitation_arn
+        )
+        if 'resourceShareInvitation' in resp:
+            return resp['resourceShareInvitation']
+        return None
+    except Exception as e:
+        return None
