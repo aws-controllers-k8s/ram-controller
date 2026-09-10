@@ -32,20 +32,20 @@ type PermissionSpec struct {
 	// A string in JSON format string that contains the following elements of a
 	// resource-based policy:
 	//
-	//   - Effect: must be set to ALLOW.
+	//    * Effect: must be set to ALLOW.
 	//
-	//   - Action: specifies the actions that are allowed by this customer managed
-	//     permission. The list must contain only actions that are supported by the
-	//     specified resource type. For a list of all actions supported by each resource
-	//     type, see Actions, resources, and condition keys for Amazon Web Services
-	//     services (https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html)
-	//     in the Identity and Access Management User Guide.
+	//    * Action: specifies the actions that are allowed by this customer managed
+	//    permission. The list must contain only actions that are supported by the
+	//    specified resource type. For a list of all actions supported by each resource
+	//    type, see Actions, resources, and condition keys for Amazon Web Services
+	//    services (https://docs.aws.amazon.com/service-authorization/latest/reference/reference_policies_actions-resources-contextkeys.html)
+	//    in the Identity and Access Management User Guide.
 	//
-	//   - Condition: (optional) specifies conditional parameters that must evaluate
-	//     to true when a user attempts an action for that action to be allowed.
-	//     For more information about the Condition element, see IAM policies: Condition
-	//     element (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html)
-	//     in the Identity and Access Management User Guide.
+	//    * Condition: (optional) specifies conditional parameters that must evaluate
+	//    to true when a user attempts an action for that action to be allowed.
+	//    For more information about the Condition element, see IAM policies: Condition
+	//    element (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html)
+	//    in the Identity and Access Management User Guide.
 	//
 	// This template can't include either the Resource or Principal elements. Those
 	// are both filled in by RAM when it instantiates the resource-based policy
