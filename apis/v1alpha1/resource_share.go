@@ -23,22 +23,48 @@ import (
 // ResourceShareSpec defines the desired state of ResourceShare.
 //
 // Describes a resource share in RAM.
+//
+// This resource can operate in two modes:
+// 1. Create Mode (default): Creates a new resource share and shares resources with principals
+// 2. Accept Mode: Accepts an incoming resource share invitation from another account
+//
+// To use Accept Mode, set the acceptInvitation field with the ShareARN of the incoming share.
+// In Accept Mode, most other fields (name, principals, resourceARNs, etc.) are ignored.
 type ResourceShareSpec struct {
+
+	// AcceptInvitation configures this resource to accept an incoming share invitation
+	// instead of creating a new share. When set, the controller will:
+	// 1. Find the pending invitation for the specified ShareARN
+	// 2. Accept the invitation
+	// 3. Populate status with invitation details
+	//
+	// This is mutually exclusive with creating a new share. When acceptInvitation
+	// is set, fields like name, principals, and resourceARNs are ignored.
+	//
+	// Use this when you want to accept a share from another AWS account.
+	// +kubebuilder:validation:Optional
+	AcceptInvitation *AcceptInvitationSpec `json:"acceptInvitation,omitempty"`
 
 	// Specifies whether principals outside your organization in Organizations can
 	// be associated with a resource share. A value of true lets you share with
 	// individual Amazon Web Services accounts that are not in your organization.
 	// A value of false only has meaning if your account is a member of an Amazon
 	// Web Services Organization. The default value is true.
+	//
+	// This field is ignored when acceptInvitation is set.
 	AllowExternalPrincipals *bool `json:"allowExternalPrincipals,omitempty"`
 	// Specifies the name of the resource share.
-	// +kubebuilder:validation:Required
-	Name *string `json:"name"`
+	//
+	// This field is ignored when acceptInvitation is set.
+	// +kubebuilder:validation:Optional
+	Name *string `json:"name,omitempty"`
 	// Specifies the Amazon Resource Names (ARNs) (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// of the RAM permission to associate with the resource share. If you do not
 	// specify an ARN for the permission, RAM automatically attaches the default
 	// version of the permission for each resource type. You can associate only
 	// one permission with each resource type included in the resource share.
+	//
+	// This field is ignored when acceptInvitation is set.
 	PermissionARNs []*string                                  `json:"permissionARNs,omitempty"`
 	PermissionRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"permissionRefs,omitempty"`
 	// Specifies a list of one or more principals to associate with the resource
@@ -61,17 +87,33 @@ type ResourceShareSpec struct {
 	// Not all resource types can be shared with IAM roles and users. For more information,
 	// see Sharing with IAM roles and users (https://docs.aws.amazon.com/ram/latest/userguide/permissions.html#permissions-rbp-supported-resource-types)
 	// in the Resource Access Manager User Guide.
+	//
+	// This field is ignored when acceptInvitation is set.
 	Principals []*string `json:"principals,omitempty"`
 	// Specifies a list of one or more ARNs of the resources to associate with the
 	// resource share.
+	//
+	// This field is ignored when acceptInvitation is set.
 	ResourceARNs []*string `json:"resourceARNs,omitempty"`
 	// Specifies from which source accounts the service principal has access to
 	// the resources in this resource share.
+	//
+	// This field is ignored when acceptInvitation is set.
 	Sources []*string `json:"sources,omitempty"`
 	// A list of one or more tag key and value pairs. The tag key must be present
 	// and not be an empty string. The tag value must be present but can be an empty
 	// string.
+	//
+	// This field is ignored when acceptInvitation is set.
 	Tags []*Tag `json:"tags,omitempty"`
+}
+
+// AcceptInvitationSpec defines the configuration for accepting an incoming share invitation
+type AcceptInvitationSpec struct {
+	// The Amazon Resource Name (ARN) of the resource share to accept.
+	// This should be the ARN of the share that was created by another account.
+	// +kubebuilder:validation:Required
+	ShareARN *string `json:"shareARN"`
 }
 
 // ResourceShareStatus defines the observed state of ResourceShare
@@ -124,6 +166,43 @@ type ResourceShareStatus struct {
 	// A message about the status of the resource share.
 	// +kubebuilder:validation:Optional
 	StatusMessage *string `json:"statusMessage,omitempty"`
+
+	// The following fields are populated only when spec.acceptInvitation is set
+	// (Accept Mode). They provide details about the accepted invitation.
+
+	// The ARN of the invitation that was accepted.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	InvitationARN *string `json:"invitationARN,omitempty"`
+	// The current status of the invitation.
+	// Possible values: PENDING, ACCEPTED, REJECTED, EXPIRED
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	InvitationStatus *string `json:"invitationStatus,omitempty"`
+	// The ID of the AWS account that sent the invitation.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	SenderAccountID *string `json:"senderAccountID,omitempty"`
+	// The ID of the AWS account that received the invitation.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	ReceiverAccountID *string `json:"receiverAccountID,omitempty"`
+	// The name of the resource share.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	ShareName *string `json:"shareName,omitempty"`
+	// The date and time when the invitation was sent.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	InvitationTime *metav1.Time `json:"invitationTime,omitempty"`
+	// The resources included in the resource share.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	Resources []*string `json:"resources,omitempty"`
+	// The current status of the resource share.
+	// Only populated in Accept Mode.
+	// +kubebuilder:validation:Optional
+	ShareStatus *string `json:"shareStatus,omitempty"`
 }
 
 // ResourceShare is the Schema for the ResourceShares API
